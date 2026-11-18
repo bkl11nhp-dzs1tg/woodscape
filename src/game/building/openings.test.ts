@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { createShowcaseObjects } from '../../data/showcaseObjects'
 import type { GeometryParams, Vec3, WorldObject } from '../../types/world'
 import { resolveCameraCollision } from '../camera/collision'
-import { createBoxWithHoles } from '../geometry/GeometryFactory'
+import { createBoxWithHoles, createExtrudeWithOpenings } from '../geometry/GeometryFactory'
+import { cutOutShape, shapePoints } from './cutting'
+import { useWorldStore } from '../../stores/worldStore'
 import { computeWallHoles } from './openings'
 
 function make(id: string, geometry: GeometryParams, position: Vec3, rotation: Vec3 = [0, 0, 0], open = false): WorldObject {
@@ -103,5 +105,23 @@ describe('camera collision', () => {
 
   it('leaves the eye alone when it is clear of everything', () => {
     expect(resolve([wall, door()], [0, 1.6, 2]).toArray()).toEqual([0, 1.6, 2])
+  })
+})
+
+describe('a wall that has been cut', () => {
+  it('keeps the holes of its door after a shape is cut out of it', () => {
+    useWorldStore.setState({ objects: { wall }, order: ['wall'] })
+    // A round hole well away from the door.
+    const ids = cutOutShape('wall', 2, shapePoints('circle', [-1.2, 0], 0.8, 0.8), false)
+    expect(ids).not.toBeNull()
+    const cut = useWorldStore.getState().objects[ids![0]]
+    expect(cut.geometry.shape).toBe('extrude')
+    const holes = computeWallHoles([cut, door()])
+    expect(holes[cut.id]?.rects).toHaveLength(1)
+    const g = cut.geometry as Extract<GeometryParams, { shape: 'extrude' }>
+    const plain = createExtrudeWithOpenings(g.points, g.holes ?? [], g.depth, [])
+    const withDoor = createExtrudeWithOpenings(g.points, g.holes ?? [], g.depth, holes[cut.id].rects)
+    // The door opening adds side faces to the wall.
+    expect(withDoor.attributes.position.count).toBeGreaterThan(plain.attributes.position.count)
   })
 })

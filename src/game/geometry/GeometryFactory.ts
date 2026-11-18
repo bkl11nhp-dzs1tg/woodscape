@@ -284,3 +284,40 @@ function createCylinder(radiusTop: number, radiusBottom: number, height: number)
   }
   return geometry
 }
+
+type Pt2 = [number, number]
+
+function insidePolygon([x, y]: Pt2, polygon: Pt2[]): boolean {
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, yi] = polygon[i]
+    const [xj, yj] = polygon[j]
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
+/**
+ * A cut wall (an extrusion) with its doors and windows: each opening becomes one more hole in the
+ * outline. An opening that does not lie wholly inside the outline, or that runs into another hole,
+ * is left out rather than breaking the shape.
+ */
+export function createExtrudeWithOpenings(points: Pt2[], holes: Pt2[][], depth: number, rects: WallHoles['rects']): THREE.BufferGeometry {
+  const bounds = (poly: Pt2[]) => ({
+    x0: Math.min(...poly.map((p) => p[0])),
+    x1: Math.max(...poly.map((p) => p[0])),
+    y0: Math.min(...poly.map((p) => p[1])),
+    y1: Math.max(...poly.map((p) => p[1])),
+  })
+  const taken = holes.map(bounds)
+  const extra: Pt2[][] = []
+  for (const r of rects) {
+    const poly: Pt2[] = [[r.u0, r.v0], [r.u1, r.v0], [r.u1, r.v1], [r.u0, r.v1]]
+    if (!poly.every((p) => insidePolygon(p, points))) continue
+    const box = { x0: r.u0, x1: r.u1, y0: r.v0, y1: r.v1 }
+    if (taken.some((t) => box.x0 < t.x1 && box.x1 > t.x0 && box.y0 < t.y1 && box.y1 > t.y0)) continue
+    taken.push(box)
+    extra.push(poly)
+  }
+  return createExtrude(points, [...holes, ...extra], depth)
+}

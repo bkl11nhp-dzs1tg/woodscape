@@ -9,6 +9,7 @@ import { useWorldStore } from '../../stores/worldStore'
 import type { GeometryParams, LengthUnit, Vec3, WorldObject } from '../../types/world'
 import {
   createBoxWithHoles,
+  createExtrudeWithOpenings,
   getDimensions,
   getGeometry,
   isBoxLike,
@@ -221,7 +222,12 @@ function SolidObject({ obj, selected, labels, holes }: { obj: WorldObject; selec
 
   // Walls with openings get their own geometry; everything else shares cached geometry.
   const holed = useMemo(() => {
-    if (!holes || !isBoxLike(obj.geometry.shape)) return null
+    if (!holes) return null
+    if (obj.geometry.shape === 'extrude') {
+      const g = obj.geometry
+      return createExtrudeWithOpenings(g.points, g.holes ?? [], g.depth, holes.rects)
+    }
+    if (!isBoxLike(obj.geometry.shape)) return null
     const size = getDimensions(obj.geometry)
     return createBoxWithHoles(size.width, size.height, size.depth, alignGrain, holes)
     // eslint-disable-next-line react-hooks/exhaustive-deps

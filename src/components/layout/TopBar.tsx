@@ -64,7 +64,8 @@ export function TopBar() {
   const editing = useEditorStore((s) => s.appMode === 'edit')
 
   return (
-    <header className="topbar panel">
+    <header className="topbar">
+      <div className="topbar-group">
       <div className="logo">WOODSCAPE</div>
       <div className="world-name" title="Tên thế giới">
         {worldName}
@@ -84,8 +85,9 @@ export function TopBar() {
         <Snapshots />
       </div>
 
-      <div className="spacer" />
+      </div>
 
+      <div className="topbar-group">
       <select aria-label="Thời gian trong ngày" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value as TimeOfDay)}>
         {TIME_ORDER.map((time) => (
           <option key={time} value={time}>
@@ -126,6 +128,7 @@ export function TopBar() {
       </button>
       <ModeTabs />
       <Settings />
+      </div>
     </header>
   )
 }

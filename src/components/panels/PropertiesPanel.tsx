@@ -1,4 +1,18 @@
-import { useEffect, useState } from 'react'
+import axisXIcon from '../../assets/icons/axis-x.svg'
+import axisYIcon from '../../assets/icons/axis-y.svg'
+import axisZIcon from '../../assets/icons/axis-z.svg'
+import cutHalfIcon from '../../assets/icons/cut-half.svg'
+import cutLineIcon from '../../assets/icons/cut-line.svg'
+import cutShapeIcon from '../../assets/icons/cut-shape.svg'
+import dimHeightIcon from '../../assets/icons/dim-height.svg'
+import dimWidthIcon from '../../assets/icons/dim-width.svg'
+import doCutIcon from '../../assets/icons/do-cut.svg'
+import doHoleIcon from '../../assets/icons/do-hole.svg'
+import keepPieceIcon from '../../assets/icons/keep-piece.svg'
+import shapeCircleIcon from '../../assets/icons/shape-circle.svg'
+import shapeRectIcon from '../../assets/icons/shape-rect.svg'
+import shapeTriangleIcon from '../../assets/icons/shape-triangle.svg'
+import { useEffect, useState, type ReactNode } from 'react'
 import { duplicateSelection } from '../../app/useShortcuts'
 import { getMaterialDef, MATERIALS, TEXTURES } from '../../data/materials'
 import {
@@ -51,7 +65,7 @@ const MATERIAL_LIST = Object.values(MATERIALS)
 
 /** Numeric input that commits on Enter or blur, so one edit is one undo step. */
 function NumberField(props: {
-  label: string
+  label: ReactNode
   value: number
   suffix: string
   digits: number
@@ -143,12 +157,32 @@ const CUT_AXES: { id: Axis; label: string }[] = [
 ]
 
 const CUT_MODES = [
-  { id: 'half', label: 'Chia đôi' },
-  { id: 'line', label: 'Đường kẻ' },
-  { id: 'shape', label: 'Khoét hình' },
+  { id: 'half', label: 'Chia đôi', icon: cutHalfIcon },
+  { id: 'line', label: 'Đường kẻ', icon: cutLineIcon },
+  { id: 'shape', label: 'Khoét hình', icon: cutShapeIcon },
 ] as const
 
-/** Cut tool: split in two at a measured place, cut along a drawn line, or cut a shape out. */
+const CUT_SHAPES = [
+  { id: 'rect', label: 'Chữ nhật', icon: shapeRectIcon },
+  { id: 'circle', label: 'Tròn', icon: shapeCircleIcon },
+  { id: 'triangle', label: 'Tam giác', icon: shapeTriangleIcon },
+] as const
+
+const AXIS_ICONS = { x: axisXIcon, y: axisYIcon, z: axisZIcon }
+
+/** Cut tool bar (like the paint bar): icons only, names show on hover. */
+export function CutBar() {
+  const active = useEditorStore((s) => s.activeTool === 'cut' && s.appMode === 'edit')
+  const id = useEditorStore((s) => s.selectedIds[0])
+  const obj = useWorldStore((s) => (id ? s.objects[id] : undefined))
+  if (!active) return null
+  return (
+    <section className="shelf panel cutbar" aria-label="Cắt">
+      {obj ? <CutControls obj={obj} /> : <span className="cut-empty">Chọn một khối</span>}
+    </section>
+  )
+}
+
 function CutControls({ obj }: { obj: WorldObject }) {
   const axis = useEditorStore((s) => s.cutAxis)
   const ratio = useEditorStore((s) => s.cutRatio)
@@ -162,38 +196,66 @@ function CutControls({ obj }: { obj: WorldObject }) {
   const scale = UNIT_SCALE[unit]
   const picks = allPicks?.id === obj.id ? allPicks : null
   const cuttable = isBoxLike(obj.geometry.shape) || obj.geometry.shape === 'extrude'
+  const boxLike = isBoxLike(obj.geometry.shape)
+  const picked = picks?.points.length ?? 0
 
   const finish = (pieces: string[] | null) => {
     if (!pieces) {
-      showToast('Không cắt được ở vị trí này. Hãy kẻ đường đi ngang qua vật thể.')
+      showToast('Không cắt được, hãy kẻ đường đi ngang qua vật thể')
       return
     }
     useEditorStore.setState({ selectedIds: [pieces[0]], cutPicks: null })
   }
 
+  const modes = (
+    <div className="cut-group cut-modes">
+      {CUT_MODES.map((item) => (
+        <button
+          key={item.id}
+          className={item.id === mode ? 'icon-btn active' : 'icon-btn'}
+          title={item.label}
+          aria-label={item.label}
+          onClick={() => useEditorStore.setState({ cutMode: item.id, cutPicks: null })}
+        >
+          <img src={item.icon} alt="" />
+          <span className="lbl">{item.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+
+  if (!cuttable) {
+    return (
+      <div className="cut-controls">
+        {modes}
+        <span className="cut-empty">Chọn khối hộp hoặc tấm</span>
+      </div>
+    )
+  }
+
   return (
     <div className="cut-controls">
-      <div className="segmented">
-        {CUT_MODES.map((item) => (
-          <button key={item.id} className={item.id === mode ? 'active' : ''} onClick={() => useEditorStore.setState({ cutMode: item.id, cutPicks: null })}>
-            {item.label}
-          </button>
-        ))}
-      </div>
+      {modes}
+      <div className="cut-options">
 
-      {!cuttable && <p className="muted note">Công cụ Cắt dùng được cho khối hộp, tấm và các miếng đã cắt.</p>}
-
-      {cuttable && mode === 'half' && isBoxLike(obj.geometry.shape) && (
+      {mode === 'half' && boxLike && (
         <>
-          <select aria-label="Hướng cắt" value={axis} onChange={(e) => setCut({ axis: e.target.value as Axis })}>
+          <div className="cut-group">
             {CUT_AXES.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
+              <button
+                key={item.id}
+                className={item.id === axis ? 'icon-btn active' : 'icon-btn'}
+                title={item.label}
+                aria-label={item.label}
+                onClick={() => setCut({ axis: item.id as Axis })}
+              >
+                <img src={AXIS_ICONS[item.id as Axis]} alt="" />
+                <span className="lbl">{item.id.toUpperCase()}</span>
+              </button>
             ))}
-          </select>
+          </div>
           <NumberField
-            label="Cách đầu"
+            label={<><img className="mini" src={dimWidthIcon} alt="" title="Cách đầu" /><span className="lbl">Cách đầu</span></>}
             suffix={unit}
             digits={UNIT_DIGITS[unit]}
             value={ratio * { x: getDimensions(obj.geometry).width, y: getDimensions(obj.geometry).height, z: getDimensions(obj.geometry).depth }[axis] * scale}
@@ -203,40 +265,53 @@ function CutControls({ obj }: { obj: WorldObject }) {
               setCut({ ratio: Math.min(0.98, Math.max(0.02, value / scale / length)) })
             }}
           />
-          <button className="primary" onClick={() => finish(cutObject(obj.id, axis, ratio))}>
-            Cắt tại vạch đỏ
+          <button className="icon-btn go" title="Cắt tại vạch đỏ" aria-label="Cắt tại vạch đỏ" onClick={() => finish(cutObject(obj.id, axis, ratio))}>
+            <img src={doCutIcon} alt="" />
+            <span className="lbl">Cắt</span>
           </button>
-          <p className="muted note">Bấm lên vật thể để dời vạch cắt.</p>
         </>
       )}
-      {cuttable && mode === 'half' && !isBoxLike(obj.geometry.shape) && (
-        <p className="muted note">Miếng đã cắt xiên thì dùng "Đường kẻ" hoặc "Khoét hình".</p>
-      )}
+      {mode === 'half' && !boxLike && <span className="cut-empty">Dùng đường kẻ hoặc khoét hình</span>}
 
-      {cuttable && mode === 'line' && (
+      {mode === 'line' && (
         <>
-          <p className="muted note">Bấm hai điểm trên một mặt của vật thể để kẻ đường cắt. Đường cắt đi thẳng qua bề dày, xiên góc nào cũng được.</p>
+          <ol className="cut-steps">
+            <li className={picked >= 1 ? 'done' : 'now'}>Điểm đầu</li>
+            <li className={picked >= 2 ? 'done' : picked === 1 ? 'now' : ''}>Điểm cuối</li>
+          </ol>
           <button
-            className="primary"
-            disabled={!picks || picks.points.length < 2}
+            className="icon-btn go"
+            title="Cắt theo đường kẻ"
+            aria-label="Cắt theo đường kẻ"
+            disabled={picked < 2}
             onClick={() => picks && finish(cutAlongLine(obj.id, picks.axis, picks.points[0], picks.points[1]))}
           >
-            Cắt theo đường kẻ
+            <img src={doCutIcon} alt="" />
+            <span className="lbl">Cắt</span>
           </button>
         </>
       )}
 
-      {cuttable && mode === 'shape' && (
+      {mode === 'shape' && (
         <>
-          <select aria-label="Hình khoét" value={shape} onChange={(e) => useEditorStore.setState({ cutShape: e.target.value as typeof shape })}>
-            <option value="rect">Hình chữ nhật</option>
-            <option value="circle">Hình tròn / bầu dục</option>
-            <option value="triangle">Hình tam giác</option>
-          </select>
-          {(['Rộng', 'Cao'] as const).map((label, i) => (
+          <div className="cut-group">
+            {CUT_SHAPES.map((item) => (
+              <button
+                key={item.id}
+                className={item.id === shape ? 'icon-btn active' : 'icon-btn'}
+                title={item.label}
+                aria-label={item.label}
+                onClick={() => useEditorStore.setState({ cutShape: item.id })}
+              >
+                <img src={item.icon} alt="" />
+                <span className="lbl">{item.label}</span>
+              </button>
+            ))}
+          </div>
+          {([dimWidthIcon, dimHeightIcon] as const).map((icon, i) => (
             <NumberField
-              key={label}
-              label={label}
+              key={icon}
+              label={<><img className="mini" src={icon} alt="" title={i === 0 ? 'Rộng' : 'Cao'} /><span className="lbl">{i === 0 ? 'Rộng' : 'Cao'}</span></>}
               suffix={unit}
               digits={UNIT_DIGITS[unit]}
               value={shapeSize[i] * scale}
@@ -247,22 +322,29 @@ function CutControls({ obj }: { obj: WorldObject }) {
               }}
             />
           ))}
-          <label className="check">
-            <input type="checkbox" checked={keepPlug} onChange={(e) => useEditorStore.setState({ cutKeepPlug: e.target.checked })} />
-            <span>Giữ lại miếng cắt ra</span>
-          </label>
-          <p className="muted note">Bấm lên một mặt của vật thể để đặt tâm hình.</p>
           <button
-            className="primary"
-            disabled={!picks}
-            onClick={() =>
-              picks && finish(cutOutShape(obj.id, picks.axis, shapePoints(shape, picks.points[0], shapeSize[0], shapeSize[1]), keepPlug))
-            }
+            className={keepPlug ? 'icon-btn active' : 'icon-btn'}
+            title="Giữ lại miếng cắt ra"
+            aria-label="Giữ lại miếng cắt ra"
+            aria-pressed={keepPlug}
+            onClick={() => useEditorStore.setState({ cutKeepPlug: !keepPlug })}
           >
-            Khoét hình này
+            <img src={keepPieceIcon} alt="" />
+            <span className="lbl">Giữ miếng</span>
+          </button>
+          <button
+            className="icon-btn go"
+            title="Khoét hình"
+            aria-label="Khoét hình"
+            disabled={!picks}
+            onClick={() => picks && finish(cutOutShape(obj.id, picks.axis, shapePoints(shape, picks.points[0], shapeSize[0], shapeSize[1]), keepPlug))}
+          >
+            <img src={doHoleIcon} alt="" />
+            <span className="lbl">Khoét</span>
           </button>
         </>
       )}
+      </div>
     </div>
   )
 }
@@ -373,7 +455,7 @@ export function PropertiesPanel() {
 
   // The settings popover opens in this corner; step aside instead of sitting under it.
   // In view mode there is nothing to edit.
-  if (settingsOpen || appMode === 'view') return null
+  if (settingsOpen || appMode === 'view' || tool === 'cut') return null
 
   if (selectedIds.length > 1) return <MultiPanel ids={selectedIds} />
 
@@ -440,7 +522,6 @@ export function PropertiesPanel() {
         </div>
       )}
 
-      {tool === 'cut' && <CutControls obj={obj} />}
 
       <h3>Kích thước</h3>
       {DIMENSION_FIELDS[obj.geometry.shape].map(([label, key]) => (

@@ -32,9 +32,11 @@ export function computeWallHoles(objects: readonly WorldObject[]): Record<string
   if (openings.length === 0) return result
 
   for (const wall of objects) {
-    if (!isBoxLike(wall.geometry.shape)) continue
+    // A wall cut into a freer shape (an extrusion) still gets its door and window holes.
+    const extruded = wall.geometry.shape === 'extrude'
+    if (!isBoxLike(wall.geometry.shape) && !extruded) continue
     const size = getDimensions(wall.geometry)
-    const thin: 'x' | 'z' = size.depth <= size.width ? 'z' : 'x'
+    const thin: 'x' | 'z' = extruded || size.depth <= size.width ? 'z' : 'x'
     const thinHalf = (thin === 'z' ? size.depth : size.width) / 2
     if (thinHalf * 2 > MAX_WALL_THICKNESS) continue
     const uHalf = (thin === 'z' ? size.width : size.depth) / 2

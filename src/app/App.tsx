@@ -1,5 +1,5 @@
 import { TopBar } from '../components/layout/TopBar'
-import { PropertiesPanel } from '../components/panels/PropertiesPanel'
+import { CutBar, PropertiesPanel } from '../components/panels/PropertiesPanel'
 import { ShapeShelf } from '../components/panels/ShapeShelf'
 import { ComfortOverlay, ConfirmBar, DrawBar, MarkBar, Minimap, PaintBar, Toasts, TouchControls } from '../components/panels/ToolPanels'
 import { LeftToolbar } from '../components/toolbar/LeftToolbar'
@@ -7,6 +7,10 @@ import { getShapePreset } from '../data/shapePresets'
 import { GameCanvas } from '../game/core/GameCanvas'
 import { useEditorStore } from '../stores/editorStore'
 import { useShortcuts } from './useShortcuts'
+import { useWorldStore } from '../stores/worldStore'
+
+// Dev only: lets browser tests reach the stores without loading a second copy of the modules.
+if (import.meta.env.DEV) (window as unknown as { __woodscape?: unknown }).__woodscape = { useEditorStore, useWorldStore }
 
 /** One line of help for whatever the player is doing right now. */
 function Hint() {
@@ -53,7 +57,7 @@ function Hint() {
   } else if (tool === 'cut') {
     content = (
       <span>
-        <strong>Cắt</strong>: chọn một khối, chọn kiểu cắt ở bảng bên phải (chia đôi, đường kẻ, khoét hình), bấm lên khối để đặt · <kbd>Esc</kbd> thoát
+        <strong>Cắt</strong>: chọn một khối, chọn kiểu cắt ở thanh dưới, bấm lên khối · <kbd>Esc</kbd> thoát
       </span>
     )
   } else if ((tool === 'move' || tool === 'rotate') && hasSelection) {
@@ -93,6 +97,7 @@ export function App() {
       <PropertiesPanel />
       <ShapeShelf />
       <PaintBar />
+      <CutBar />
       <DrawBar />
       <MarkBar />
       <ComfortOverlay />
