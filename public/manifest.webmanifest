@@ -1,0 +1,10 @@
+{
+  "name": "WOODSCAPE",
+  "short_name": "WOODSCAPE",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#211d18",
+  "theme_color": "#211d18",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "model_cat",
+    "name": "Mèo",
+    "url": "/assets/models/model_cat.glb",
+    "width": 0.184,
+    "height": 0.53,
+    "depth": 0.646,
+    "source": "ref_cat_standing.glb (optimized by tools/optimize-model.mjs)"
+  },
+  {
+    "id": "model_dog",
+    "name": "Chó",
+    "url": "/assets/models/model_dog.glb",
+    "width": 0.293,
+    "height": 0.74,
+    "depth": 1.055,
+    "source": "ref_dog_standing.glb (optimized by tools/optimize-model.mjs)"
+  }
+]

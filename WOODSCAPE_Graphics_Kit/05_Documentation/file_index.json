@@ -1,0 +1,254 @@
+[
+  {
+    "path": "00_Concept/Texture_Atlas_Preview.jpg",
+    "size_bytes": 93685
+  },
+  {
+    "path": "00_Concept/WOODSCAPE_House_Building_Concept_Main.png",
+    "size_bytes": 3174429
+  },
+  {
+    "path": "00_Concept/WOODSCAPE_House_Building_Workflow_Concept.png",
+    "size_bytes": 3249052
+  },
+  {
+    "path": "01_References/Original_Woodscape_Scene_Reference.jpg",
+    "size_bytes": 329637
+  },
+  {
+    "path": "02_Textures/Roof_Glass/glass_tinted_albedo.png",
+    "size_bytes": 26409
+  },
+  {
+    "path": "02_Textures/Roof_Glass/glass_tinted_roughness.png",
+    "size_bytes": 67819
+  },
+  {
+    "path": "02_Textures/Roof_Glass/roof_shingles_albedo.png",
+    "size_bytes": 52295
+  },
+  {
+    "path": "02_Textures/Roof_Glass/roof_shingles_roughness.png",
+    "size_bytes": 68419
+  },
+  {
+    "path": "02_Textures/Stone_Brick/concrete_albedo.png",
+    "size_bytes": 98798
+  },
+  {
+    "path": "02_Textures/Stone_Brick/concrete_roughness.png",
+    "size_bytes": 69899
+  },
+  {
+    "path": "02_Textures/Stone_Brick/red_brick_albedo.png",
+    "size_bytes": 51642
+  },
+  {
+    "path": "02_Textures/Stone_Brick/red_brick_roughness.png",
+    "size_bytes": 63640
+  },
+  {
+    "path": "02_Textures/Stone_Brick/stone_masonry_albedo.png",
+    "size_bytes": 665023
+  },
+  {
+    "path": "02_Textures/Stone_Brick/stone_masonry_roughness.png",
+    "size_bytes": 66326
+  },
+  {
+    "path": "02_Textures/Terrain/coastal_sand_albedo.png",
+    "size_bytes": 775390
+  },
+  {
+    "path": "02_Textures/Terrain/coastal_sand_roughness.png",
+    "size_bytes": 64843
+  },
+  {
+    "path": "02_Textures/Terrain/grassland_albedo.png",
+    "size_bytes": 775406
+  },
+  {
+    "path": "02_Textures/Terrain/grassland_roughness.png",
+    "size_bytes": 69396
+  },
+  {
+    "path": "02_Textures/Terrain/gravel_albedo.png",
+    "size_bytes": 774637
+  },
+  {
+    "path": "02_Textures/Terrain/gravel_roughness.png",
+    "size_bytes": 64650
+  },
+  {
+    "path": "02_Textures/Terrain/soil_albedo.png",
+    "size_bytes": 775335
+  },
+  {
+    "path": "02_Textures/Terrain/soil_roughness.png",
+    "size_bytes": 67531
+  },
+  {
+    "path": "02_Textures/Wood/wood_birch_albedo.png",
+    "size_bytes": 311637
+  },
+  {
+    "path": "02_Textures/Wood/wood_birch_roughness.png",
+    "size_bytes": 62568
+  },
+  {
+    "path": "02_Textures/Wood/wood_cedar_albedo.png",
+    "size_bytes": 314718
+  },
+  {
+    "path": "02_Textures/Wood/wood_cedar_roughness.png",
+    "size_bytes": 65267
+  },
+  {
+    "path": "02_Textures/Wood/wood_oak_albedo.png",
+    "size_bytes": 316366
+  },
+  {
+    "path": "02_Textures/Wood/wood_oak_roughness.png",
+    "size_bytes": 64224
+  },
+  {
+    "path": "02_Textures/Wood/wood_pine_albedo.png",
+    "size_bytes": 312796
+  },
+  {
+    "path": "02_Textures/Wood/wood_pine_roughness.png",
+    "size_bytes": 63868
+  },
+  {
+    "path": "02_Textures/Wood/wood_walnut_albedo.png",
+    "size_bytes": 318712
+  },
+  {
+    "path": "02_Textures/Wood/wood_walnut_roughness.png",
+    "size_bytes": 61780
+  },
+  {
+    "path": "03_UI_Icons/craft.svg",
+    "size_bytes": 259
+  },
+  {
+    "path": "03_UI_Icons/cut.svg",
+    "size_bytes": 276
+  },
+  {
+    "path": "03_UI_Icons/decorate.svg",
+    "size_bytes": 285
+  },
+  {
+    "path": "03_UI_Icons/folder.svg",
+    "size_bytes": 233
+  },
+  {
+    "path": "03_UI_Icons/home.svg",
+    "size_bytes": 225
+  },
+  {
+    "path": "03_UI_Icons/join.svg",
+    "size_bytes": 248
+  },
+  {
+    "path": "03_UI_Icons/measure.svg",
+    "size_bytes": 255
+  },
+  {
+    "path": "03_UI_Icons/plant.svg",
+    "size_bytes": 273
+  },
+  {
+    "path": "03_UI_Icons/redo.svg",
+    "size_bytes": 244
+  },
+  {
+    "path": "03_UI_Icons/roof.svg",
+    "size_bytes": 236
+  },
+  {
+    "path": "03_UI_Icons/save.svg",
+    "size_bytes": 247
+  },
+  {
+    "path": "03_UI_Icons/select.svg",
+    "size_bytes": 215
+  },
+  {
+    "path": "03_UI_Icons/settings.svg",
+    "size_bytes": 531
+  },
+  {
+    "path": "03_UI_Icons/shape.svg",
+    "size_bytes": 235
+  },
+  {
+    "path": "03_UI_Icons/undo.svg",
+    "size_bytes": 242
+  },
+  {
+    "path": "03_UI_Icons/weather.svg",
+    "size_bytes": 325
+  },
+  {
+    "path": "03_UI_Icons/window.svg",
+    "size_bytes": 225
+  },
+  {
+    "path": "03_UI_Icons/wood.svg",
+    "size_bytes": 271
+  },
+  {
+    "path": "04_Models/animals/README.md",
+    "size_bytes": 190
+  },
+  {
+    "path": "04_Models/building-parts/README.md",
+    "size_bytes": 190
+  },
+  {
+    "path": "04_Models/cat-items/README.md",
+    "size_bytes": 190
+  },
+  {
+    "path": "04_Models/environment/README.md",
+    "size_bytes": 190
+  },
+  {
+    "path": "04_Models/furniture/README.md",
+    "size_bytes": 190
+  },
+  {
+    "path": "04_Models/glass/README.md",
+    "size_bytes": 190
+  },
+  {
+    "path": "04_Models/props/README.md",
+    "size_bytes": 190
+  },
+  {
+    "path": "04_Models/references/README.md",
+    "size_bytes": 190
+  },
+  {
+    "path": "04_Models/stone/README.md",
+    "size_bytes": 190
+  },
+  {
+    "path": "04_Models/wood/README.md",
+    "size_bytes": 190
+  },
+  {
+    "path": "05_Documentation/ASSET_MANIFEST.md",
+    "size_bytes": 1960
+  },
+  {
+    "path": "05_Documentation/WOODSCAPE_GDD_Architecture_v1.1.md",
+    "size_bytes": 25984
+  },
+  {
+    "path": "README_VI.md",
+    "size_bytes": 1662
+  }
+]
