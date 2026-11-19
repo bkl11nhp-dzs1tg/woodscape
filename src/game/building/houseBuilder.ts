@@ -4,7 +4,7 @@ import { useEditorStore } from '../../stores/editorStore'
 import { showToast } from '../../stores/toastStore'
 import { useWorldStore } from '../../stores/worldStore'
 import type { WorldObject } from '../../types/world'
-import { mergeSince, useHistoryStore } from '../core/history'
+import { mergeCommands, useHistoryStore, type Command } from '../core/history'
 import { getTerrainHeight } from '../environment/terrain'
 import { addObjects, createObjectId, groupObjects, paintObjects } from './commands'
 import { addOpeningsToSelection, addRoofToSelection, toObjects } from './drawActions'
@@ -48,8 +48,12 @@ export function isBuilding(): boolean {
   return useConstructionStore.getState().active !== null
 }
 
+/** Houses waiting for the one being built to finish: each starts by itself, one after another. */
+const queue: Array<() => void> = []
+
 export function stopBuilding(): void {
-  if (isBuilding()) useConstructionStore.setState({ stopRequested: true })
+  queue.length = 0
+  if (isBuilding()) useConstructionStore.setState({ stopRequested: true, queued: 0 })
 }
 
 interface Step {
@@ -68,8 +72,12 @@ export function buildHouse(
   const plan = getHousePlan(planId)
   if (!plan) return null
   if (isBuilding()) {
-    showToast('Đang xây một căn nhà khác. Đợi xong hoặc bấm Hủy.')
-    return null
+    // Another house is going up: this one is lined up behind it instead of being refused.
+    return new Promise<void>((resolve) => {
+      queue.push(() => void run(plan, origin, turns, wait).then(resolve))
+      useConstructionStore.setState({ queued: queue.length })
+      showToast(`Đã xếp "${plan.name}" vào hàng, sẽ xây ngay sau căn đang xây.`)
+    })
   }
   return run(plan, origin, turns, wait)
 }
@@ -77,7 +85,14 @@ export function buildHouse(
 async function run(plan: HousePlan, origin: Pt, turns: number, wait: (ms: number) => Promise<void>): Promise<void> {
   const world = (point: Pt) => placePoint(point, origin, turns)
   const made: string[] = []
-  const startLength = useHistoryStore.getState().undoStack.length
+  // The commands this house adds to the undo list. Other edits made meanwhile stay separate, so the house undoes in one step.
+  const ours: Command[] = []
+  const record = <T,>(fn: () => T): T => {
+    const before = useHistoryStore.getState().undoStack.length
+    const result = fn()
+    ours.push(...useHistoryStore.getState().undoStack.slice(before))
+    return result
+  }
 
   const storeys = [
     { outline: plan.outline, floor: plan.floor, material: plan.wallMaterial },
@@ -356,7 +371,6 @@ async function run(plan: HousePlan, origin: Pt, turns: number, wait: (ms: number
   report(0, 'Chuẩn bị')
   useConstructionStore.setState({ stopRequested: false })
   useEditorStore.setState({ selectedIds: [] })
-  let expected = startLength
   let stopped = false
   try {
     for (let i = 0; i < steps.length; i++) {
@@ -364,27 +378,31 @@ async function run(plan: HousePlan, origin: Pt, turns: number, wait: (ms: number
         stopped = true
         break
       }
-      // Something else changed the world (an undo, an edit): leave the rest alone.
-      if (useHistoryStore.getState().undoStack.length !== expected) {
+      // Part of this house was undone: leave the rest alone. Other edits made meanwhile do not matter.
+      const stack = useHistoryStore.getState().undoStack
+      if (ours.length > 0 && !stack.includes(ours[ours.length - 1])) {
         stopped = true
         break
       }
       report(i + 1, steps[i].label)
-      const pause = steps[i].run()
-      expected = useHistoryStore.getState().undoStack.length
+      const pause = record(() => steps[i].run())
       await wait(pause)
     }
   } finally {
-    const stillOurs = useHistoryStore.getState().undoStack.length >= startLength
-    if (stillOurs && made.length > 0) {
+    const stack = useHistoryStore.getState().undoStack
+    const stillOurs = ours.length > 0 && stack.includes(ours[ours.length - 1])
+    if (stillOurs) {
       const present = made.filter((id) => id in useWorldStore.getState().objects)
-      if (!stopped && present.length > 0) groupObjects(present, plan.name)
-      mergeSince(startLength, `Build ${plan.name}`)
+      if (!stopped && present.length > 0) record(() => groupObjects(present, plan.name))
+      mergeCommands(ours, `Build ${plan.name}`)
     }
     useConstructionStore.setState({ active: null, stopRequested: false })
     useEditorStore.setState({ selectedIds: [] })
     // Nudge the scene so settled pieces can be drawn together again.
     useWorldStore.setState((s) => ({ objects: { ...s.objects } }))
+    const next = queue.shift()
+    useConstructionStore.setState({ queued: queue.length })
+    if (next) next()
   }
   showToast(stopped ? `Đã dừng xây "${plan.name}".` : `Đã xây xong "${plan.name}". Hoàn tác một lần là gỡ cả căn.`)
 }

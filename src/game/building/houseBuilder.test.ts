@@ -14,7 +14,7 @@ const instant = async () => undefined
 beforeEach(() => {
   useWorldStore.setState({ objects: {}, order: [] })
   useEditorStore.setState({ selectedIds: [] })
-  useConstructionStore.setState({ active: null, stopRequested: false })
+  useConstructionStore.setState({ active: null, stopRequested: false, queued: 0 })
   clearHistory()
   growth.clear()
 })
@@ -115,11 +115,50 @@ describe('buildHouse', () => {
     expect(useConstructionStore.getState().active).toBeNull()
   })
 
-  it('refuses a second build while one is running', async () => {
+  it('lines a second build up while one is running', async () => {
     let second: Promise<void> | null | undefined
     await buildHouse('house_cabin', [0, 0], 0, async () => {
       second ??= buildHouse('house_pavilion', [20, 0], 0, instant)
     })
-    expect(second).toBeNull()
+    expect(second).not.toBeNull()
+    await second
+    expect(objects().some((o) => o.transform.position[0] > 10)).toBe(true)
+  })
+})
+
+describe('building while something else happens', () => {
+  const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+  it('lines a second house up behind the first and finishes both', async () => {
+    const first = buildHouse('house_cabin', [0, 0], 0, tick)
+    const second = buildHouse('house_cabin', [40, 0], 0, tick)
+    expect(useConstructionStore.getState().queued).toBe(1)
+    await Promise.all([first, second])
+    expect(useConstructionStore.getState().active).toBeNull()
+    expect(useConstructionStore.getState().queued).toBe(0)
+    const xs = objects().map((o) => o.transform.position[0])
+    expect(xs.some((x) => x < 20)).toBe(true)
+    expect(xs.some((x) => x > 30)).toBe(true)
+  })
+
+  it('keeps building when the player edits something else meanwhile, and still undoes in one step', async () => {
+    const before = useHistoryStore.getState().undoStack.length
+    const running = buildHouse('house_cabin', [0, 0], 0, async () => {
+      useWorldStore.getState().applyPatch({})
+      await tick()
+    })
+    await tick()
+    // another edit lands in the undo list while the house is going up
+    const { addObject, createObjectId } = await import('./commands')
+    const { createObjectFromPreset, getShapePreset } = await import('../../data/shapePresets')
+    const preset = getShapePreset('preset_plank')!
+    addObject(createObjectFromPreset(preset, createObjectId(preset.type), [50, 1, 50]))
+    await running
+    const house = objects().filter((o) => o.transform.position[0] < 20)
+    expect(house.length).toBeGreaterThan(10)
+    expect(useHistoryStore.getState().undoStack.length).toBeGreaterThan(before)
+    undo()
+    undo()
+    expect(objects().filter((o) => o.transform.position[0] < 20)).toHaveLength(0)
   })
 })

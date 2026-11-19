@@ -5,6 +5,8 @@ interface ConstructionState {
   active: { name: string; step: number; total: number; label: string; site: { x: number; z: number; radius: number } } | null
   /** Set by the Cancel button; the builder stops before its next step. */
   stopRequested: boolean
+  /** Houses lined up behind the one being built. */
+  queued: number
 }
 
-export const useConstructionStore = create<ConstructionState>(() => ({ active: null, stopRequested: false }))
+export const useConstructionStore = create<ConstructionState>(() => ({ active: null, stopRequested: false, queued: 0 }))

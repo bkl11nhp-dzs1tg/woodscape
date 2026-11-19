@@ -4338,3 +4338,34 @@ body,
     max-height: calc(100% - 66px);
   }
 }
+
+/* Progress of the house being built */
+.build-progress {
+  position: relative;
+  display: inline-block;
+  width: 150px;
+  height: 18px;
+  overflow: hidden;
+  vertical-align: middle;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+}
+
+.build-progress i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, #d9b778, #f0cf8c);
+  border-radius: 999px;
+  transition: width 0.45s ease;
+}
+
+.build-progress b {
+  position: relative;
+  display: block;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+}

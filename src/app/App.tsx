@@ -32,6 +32,7 @@ function Hint() {
   const cancel = useEditorStore((s) => s.cancel)
   const hasPending = useEditorStore((s) => s.placePending !== null)
   const building = useConstructionStore((s) => s.active)
+  const queued = useConstructionStore((s) => s.queued)
 
   let parts: ReactNode[]
   if (building) {
@@ -40,6 +41,11 @@ function Hint() {
         Đang xây <strong>{building.name}</strong>
       </>,
       `Bước ${Math.max(1, building.step)}/${building.total}: ${building.label}`,
+      <span className="build-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((building.step / building.total) * 100)}>
+        <i style={{ width: `${Math.round((building.step / building.total) * 100)}%` }} />
+        <b>{Math.round((building.step / building.total) * 100)}%</b>
+      </span>,
+      ...(queued > 0 ? [`Còn ${queued} căn chờ`] : []),
     ]
   } else if (!editing) {
     parts = [

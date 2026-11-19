@@ -58,3 +58,25 @@ export function mergeSince(length: number, label: string): void {
 export function clearHistory(): void {
   useHistoryStore.setState({ undoStack: [], redoStack: [] })
 }
+
+/**
+ * Folds the given commands (taken from anywhere in the undo list) into one, placed where the last of them was.
+ * Edits made in between by someone else keep their own entries.
+ */
+export function mergeCommands(parts: Command[], label: string): void {
+  if (parts.length < 2) return
+  const { undoStack } = useHistoryStore.getState()
+  const mine = new Set(parts)
+  const last = parts[parts.length - 1]
+  const merged: Command = {
+    label,
+    execute: () => parts.forEach((part) => part.execute()),
+    undo: () => [...parts].reverse().forEach((part) => part.undo()),
+  }
+  const next: Command[] = []
+  for (const command of undoStack) {
+    if (command === last) next.push(merged)
+    else if (!mine.has(command)) next.push(command)
+  }
+  useHistoryStore.setState({ undoStack: next })
+}
