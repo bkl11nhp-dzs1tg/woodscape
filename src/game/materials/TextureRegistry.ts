@@ -7,12 +7,33 @@ import { createRng } from '../core/random'
 const cache = new Map<string, THREE.Texture>()
 const loader = new THREE.TextureLoader()
 
+/**
+ * A picture that is still downloading would draw solid black (slow phone connections showed black house bases),
+ * so the texture starts as a plain mid-tone and takes the real picture as soon as it arrives.
+ */
+function loadWithPlaceholder(url: string): THREE.Texture {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 4
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.fillStyle = '#c8b9a2'
+    ctx.fillRect(0, 0, 4, 4)
+  }
+  const texture: THREE.Texture = new THREE.Texture(canvas)
+  texture.needsUpdate = true
+  loader.load(url, (loaded) => {
+    texture.image = loaded.image
+    texture.needsUpdate = true
+  })
+  return texture
+}
+
 export function getTexture(id: string): THREE.Texture | null {
   const def = TEXTURES[id]
   if (!def) return null
   let texture = cache.get(id)
   if (!texture) {
-    texture = def.url ? loader.load(def.url) : id === 'tex_plain' ? createPlainTexture() : id === 'tex_hedge' ? createHedgeTexture() : createBrushTexture(7)
+    texture = def.url ? loadWithPlaceholder(def.url) : id === 'tex_plain' ? createPlainTexture() : id === 'tex_hedge' ? createHedgeTexture() : createBrushTexture(7)
     texture.colorSpace = THREE.SRGBColorSpace
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping
     texture.anisotropy = 8

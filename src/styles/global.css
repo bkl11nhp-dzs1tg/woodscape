@@ -4330,3 +4330,11 @@ body,
     padding: 7px 11px;
   }
 }
+
+/* Phones: touch-sized controls make the top bar taller, so the tool column starts lower and never touches it */
+@media (pointer: coarse) and (max-height: 560px) {
+  .toolbar {
+    top: 62px;
+    max-height: calc(100% - 66px);
+  }
+}
