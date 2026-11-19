@@ -9,8 +9,11 @@ import { getTerrainHeight } from '../environment/terrain'
 import { useWorldStore } from '../../stores/worldStore'
 import type { WorldObject } from '../../types/world'
 import { getDimensions, getGeometry, isBoxLike, isOpening } from '../geometry/GeometryFactory'
-import { addObject, createObjectId, roundMm } from './commands'
-import { gizmoRecentlyUsed, markGizmoInteraction, snapToGrid } from './interaction'
+import { addObject, addObjects, createObjectId, roundMm } from './commands'
+import { instantiateCluster } from './clusters'
+import { HousePreview } from './HousePreview'
+import { buildHouse } from './houseBuilder'
+import { gizmoRecentlyUsed, hitMatrix, markGizmoInteraction, objectIdFromHit, snapToGrid } from './interaction'
 import { snapToNeighbours } from './snapping'
 
 const CLICK_DRAG_TOLERANCE = 5
@@ -43,6 +46,19 @@ export function raycastTerrain(ray: THREE.Ray, maxDistance = 800): { distance: n
   return null
 }
 
+/** Highest ground under a footprint, so a piece on a slope stands on the high side instead of sinking in. */
+export function groundUnder(x: number, z: number, width: number, depth: number, yaw: number): number {
+  const cos = Math.cos(yaw)
+  const sin = Math.sin(yaw)
+  let top = getTerrainHeight(x, z)
+  for (const [u, v] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [0, 1], [-1, 0], [1, 0]]) {
+    const lx = (u * width) / 2
+    const lz = (v * depth) / 2
+    top = Math.max(top, getTerrainHeight(x + lx * cos + lz * sin, z - lx * sin + lz * cos))
+  }
+  return top
+}
+
 interface Target {
   position: THREE.Vector3
   /** Set when the object snaps into a wall (doors, windows): the wall fixes its facing. */
@@ -62,8 +78,8 @@ function targetFromRay(raycaster: THREE.Raycaster, preset: ShapePreset, scene: T
     const group = scene.getObjectByName('world-objects')
     const hit = group ? raycaster.intersectObjects(group.children, true)[0] : undefined
     if (hit?.face && (!ground || hit.distance < ground.distance)) {
-      const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
-      const wall = Math.abs(normal.y) < 0.3 ? findWall(hit.object) : undefined
+      const normal = hit.face.normal.clone().transformDirection(hitMatrix(hit))
+      const wall = Math.abs(normal.y) < 0.3 ? findWall(hit) : undefined
       if (wall) {
         // Doors and windows go INTO the wall they are pointed at; the wall opens around them.
         // Along the wall they stay clear of its ends and click to its middle; windows settle at sill height.
@@ -92,13 +108,15 @@ function targetFromRay(raycaster: THREE.Raycaster, preset: ShapePreset, scene: T
   if (!ground) return null
   const x = snapToGrid(ground.point.x)
   const z = snapToGrid(ground.point.z)
-  const position = new THREE.Vector3(x, getTerrainHeight(x, z) + size.height / 2, z)
+  const position = new THREE.Vector3(x, groundUnder(x, z, size.width, size.depth, yaw) + size.height / 2, z)
   // Line up with whatever is already standing nearby.
   position.set(...snapToNeighbours(preset.geometry, [position.x, position.y, position.z], [0, yaw, 0]))
   // Snapping may only slide the object sideways; it always rests on the ground.
-  position.y = getTerrainHeight(position.x, position.z) + size.height / 2
+  position.y = groundUnder(position.x, position.z, size.width, size.depth, yaw) + size.height / 2
   return { position, wallYaw: null }
 }
+
+const quarter = (yaw: number) => Math.round(yaw / (Math.PI / 2)) * (Math.PI / 2)
 
 /** Puts the previewed object into the world. */
 export function confirmPlacement(): void {
@@ -107,6 +125,21 @@ export function confirmPlacement(): void {
   const pending = editor.placePending
   if (!preset || !pending) return
   const yaw = pending.wallYaw ?? editor.placeYaw
+  if (preset.house) {
+    // Houses are drawn from straight walls, so they turn in whole quarter turns.
+    const turns = ((Math.round(yaw / (Math.PI / 2)) % 4) + 4) % 4
+    markGizmoInteraction()
+    useEditorStore.setState({ activeTool: 'select', placingPresetId: null, placeKeep: false, placePending: null, placeYaw: 0, selectedIds: [], shelfOpen: false })
+    void buildHouse(preset.house, [snapToGrid(pending.x), snapToGrid(pending.z)], turns)
+    return
+  }
+  if (preset.cluster) {
+    const placed = instantiateCluster(preset.cluster, preset.name, [roundMm(pending.x), roundMm(pending.y), roundMm(pending.z)], yaw)
+    addObjects(placed, 'PlaceCluster')
+    markGizmoInteraction()
+    finishPlacing(editor.placeKeep, placed.map((o) => o.id))
+    return
+  }
   const obj = createObjectFromPreset(
     preset,
     createObjectId(preset.type),
@@ -116,7 +149,13 @@ export function confirmPlacement(): void {
   addObject(obj)
   // The same tap must not go on to select whatever is under the finger.
   markGizmoInteraction()
-  useEditorStore.setState({ activeTool: 'move', placingPresetId: null, placePending: null, placeYaw: 0, selectedIds: [obj.id] })
+  finishPlacing(editor.placeKeep, [obj.id])
+}
+
+/** After a piece is down: go and move it, or (when the choice was kept) stay ready to place the next one. */
+function finishPlacing(keep: boolean, ids: string[]): void {
+  if (keep) useEditorStore.setState({ placePending: null, selectedIds: [] })
+  else useEditorStore.setState({ activeTool: 'move', placingPresetId: null, placeKeep: false, placePending: null, placeYaw: 0, selectedIds: ids })
 }
 
 /**
@@ -141,7 +180,7 @@ export function PlacementSystem() {
     if (pending) {
       ghost.current.visible = true
       ghost.current.position.set(pending.x, pending.y, pending.z)
-      ghost.current.rotation.set(0, pending.wallYaw ?? editor.placeYaw, 0)
+      ghost.current.rotation.set(0, preset.house ? quarter(pending.wallYaw ?? editor.placeYaw) : pending.wallYaw ?? editor.placeYaw, 0)
       return
     }
     raycaster.setFromCamera(pointer, camera)
@@ -149,7 +188,7 @@ export function PlacementSystem() {
     ghost.current.visible = target !== null
     if (target) {
       ghost.current.position.copy(target.position)
-      ghost.current.rotation.set(0, target.wallYaw ?? editor.placeYaw, 0)
+      ghost.current.rotation.set(0, preset.house ? quarter(target.wallYaw ?? editor.placeYaw) : target.wallYaw ?? editor.placeYaw, 0)
     }
   })
 
@@ -176,7 +215,8 @@ export function PlacementSystem() {
       const target = targetFromRay(raycaster, preset, scene, editor.placeYaw)
       const pendingNow = editor.placePending
 
-      if (e.pointerType === 'mouse') {
+      // A house is chosen in two steps on any device: pick the spot (and see the design), then start building.
+      if (e.pointerType === 'mouse' && !preset.house) {
         if (!target) return
         useEditorStore.setState({
           placePending: { x: target.position.x, y: target.position.y, z: target.position.z, wallYaw: target.wallYaw, sx: e.clientX, sy: e.clientY },
@@ -208,25 +248,24 @@ export function PlacementSystem() {
   if (!preset || !geometry) return null
   return (
     <mesh ref={ghost} geometry={geometry} visible={false} raycast={() => null} renderOrder={9}>
-      <meshBasicMaterial color="#ffd36b" transparent opacity={0.55} depthWrite={false} />
+      <meshBasicMaterial color="#ffd36b" transparent opacity={preset.house ? 0.07 : 0.55} depthWrite={false} />
+      {preset.house && <HousePreview planId={preset.house} height={getDimensions(preset.geometry).height} />}
     </mesh>
   )
 }
 
 /** The box-shaped world object a scene node belongs to, if any. */
-function findWall(node: THREE.Object3D | null): WorldObject | undefined {
+function findWall(hit: THREE.Intersection): WorldObject | undefined {
   const objects = useWorldStore.getState().objects
-  for (let current = node; current; current = current.parent) {
-    const obj = objects[current.name]
-    if (obj) return isBoxLike(obj.geometry.shape) ? obj : undefined
-  }
-  return undefined
+  const id = objectIdFromHit(hit, objects)
+  const obj = id ? objects[id] : undefined
+  return obj && isBoxLike(obj.geometry.shape) ? obj : undefined
 }
 
 /** Snap grid, shown while placing or moving with snapping on. Sits on the ground under the camera target. */
 export function BuildGrid() {
   const visible = useEditorStore(
-    (s) => s.snapEnabled && (s.activeTool === 'place' || s.activeTool === 'move' || s.activeTool === 'mark' || s.activeTool === 'draw'),
+    (s) => s.snapEnabled && (s.activeTool === 'place' || s.activeTool === 'move' || s.activeTool === 'mark' || s.activeTool === 'draw' || s.activeTool === 'fill'),
   )
   const gridStep = useEditorStore((s) => s.gridStep)
   const controls = useThree((state) => state.controls) as OrbitControlsImpl | null

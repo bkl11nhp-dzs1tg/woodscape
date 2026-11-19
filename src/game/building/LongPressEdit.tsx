@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { useEditorStore } from '../../stores/editorStore'
 import { showToast } from '../../stores/toastStore'
 import { useWorldStore } from '../../stores/worldStore'
-import { isGizmoDragging, markGizmoInteraction } from './interaction'
+import { isGizmoDragging, markGizmoInteraction, objectIdFromHit } from './interaction'
 import { groupMembers } from './selection'
 
 const HOLD_MS = 480
@@ -40,10 +40,7 @@ export function LongPressEdit() {
       const group = scene.getObjectByName('world-objects')
       const hit = group ? raycaster.intersectObjects(group.children, true)[0] : undefined
       const objects = useWorldStore.getState().objects
-      for (let node: THREE.Object3D | null = hit?.object ?? null; node; node = node.parent) {
-        if (objects[node.name]) return node.name
-      }
-      return null
+      return objectIdFromHit(hit, objects)
     }
 
     const fire = () => {

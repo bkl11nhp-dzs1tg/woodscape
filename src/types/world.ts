@@ -8,8 +8,11 @@ export const BOX_FACES: readonly BoxFace[] = ['right', 'left', 'top', 'bottom', 
 export type GeometryParams =
   | { shape: 'box'; width: number; height: number; depth: number }
   | { shape: 'panel'; width: number; height: number; thickness: number }
-  /** Triangular prism: an isosceles triangle (base `width`, apex up) extruded along Z. */
-  | { shape: 'prism'; width: number; height: number; depth: number }
+  /**
+   * Triangular prism: a triangle (base `width`, apex up) extruded along Z. Isosceles by default;
+   * with `lean` it is a right-angled wedge whose upright side is on that end.
+   */
+  | { shape: 'prism'; width: number; height: number; depth: number; lean?: 'left' | 'right' }
   /** Door: frame plus a hinged leaf. `thickness` is the frame depth through the wall. */
   | { shape: 'door'; width: number; height: number; thickness: number; hinge: 'left' | 'right' }
   /** Window: frame plus hinged glazed sashes (two when 1 m or wider). */
@@ -53,6 +56,8 @@ export interface WorldObject {
   locked: boolean
   /** Objects sharing a group ID are selected and moved together. */
   groupId?: string
+  /** Display name of the group; stored on every member so it survives ungrouping one piece. */
+  groupName?: string
   paint?: Paint
   /** Overrides the material's opacity (0.1..1). On windows it applies to the glass. */
   opacity?: number

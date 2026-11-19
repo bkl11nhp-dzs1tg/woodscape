@@ -5,7 +5,7 @@ import type { WorldObject } from '../../types/world'
 import { getTerrainHeight } from '../environment/terrain'
 import { addObjects, createObjectId } from './commands'
 import { buildDrawnParts, type DrawnPart } from './drawing'
-import { planOpenings } from './autoOpenings'
+import { DOOR, planOpenings } from './autoOpenings'
 import { computeWallHoles } from './openings'
 import { decomposeFootprint, type Rect } from './footprint'
 import { buildRoofParts, type Footprint, type RoofKind } from './roof'
@@ -26,7 +26,7 @@ export function footprintOf(objects: readonly WorldObject[]): Footprint | null {
   return box
 }
 
-function toObjects(parts: readonly DrawnPart[], groupId: string): WorldObject[] {
+export function toObjects(parts: readonly DrawnPart[], groupId: string): WorldObject[] {
   return parts.map((part) => ({
     id: createObjectId(part.type),
     type: part.type,
@@ -115,13 +115,28 @@ export function addRoofToSelection(pitch: number, kind: RoofKind = 'gable'): voi
 }
 
 /** Adds a front door and evenly spaced windows to the selected walls (skipping walls that already have an opening). */
-export function addOpeningsToSelection(): void {
+export interface OpeningOptions {
+  door?: boolean
+  windows?: boolean
+  /** Act on these walls only. */
+  only?: string[]
+  /** Leave these walls alone. */
+  exclude?: string[]
+  doorSize?: { width: number; height: number }
+  /** Door position along its wall, fraction of the length from the middle. */
+  doorAt?: number
+}
+
+export function addOpeningsToSelection(options: OpeningOptions = {}): void {
   const { selectedIds } = useEditorStore.getState()
   const { objects } = useWorldStore.getState()
   const walls = selectedIds.map((id) => objects[id]).filter(Boolean)
   const holes = computeWallHoles(Object.values(objects))
   const skip = new Set(walls.filter((wall) => (holes[wall.id]?.rects.length ?? 0) > 0).map((wall) => wall.id))
-  const plans = planOpenings(walls, skip)
+  for (const id of options.exclude ?? []) skip.add(id)
+  if (options.only) for (const wall of walls) if (!options.only.includes(wall.id)) skip.add(wall.id)
+  const size = options.doorSize ?? { width: DOOR.width, height: DOOR.height }
+  const plans = planOpenings(walls, skip, options.door ?? true, { ...size, at: options.doorAt ?? 0.25 }).filter((plan) => plan.kind === 'door' || options.windows !== false)
   if (plans.length === 0) {
     showToast('Không có bức tường nào đủ dài để thêm cửa. Chọn các bức tường của một căn phòng.')
     return

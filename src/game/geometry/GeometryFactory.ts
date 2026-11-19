@@ -100,7 +100,7 @@ export function createGeometry(g: GeometryParams, alignGrain = false): THREE.Buf
       // Bounding volume only (placement preview, outline); the parts are built by OpeningMesh.
       return createBox(g.width, g.height, g.thickness, false)
     case 'prism':
-      return createPrism(g.width, g.height, g.depth)
+      return createPrism(g.width, g.height, g.depth, g.lean)
     case 'extrude':
       return createExtrude(g.points, g.holes ?? [], g.depth)
     case 'card':
@@ -225,12 +225,17 @@ function createExtrude(points: [number, number][], holes: [number, number][][], 
   return geometry
 }
 
-/** Triangular prism (gable / wedge block) with flat-shaded faces and UVs in meters. */
-function createPrism(width: number, height: number, depth: number): THREE.BufferGeometry {
+/**
+ * Triangular prism with flat-shaded faces and UVs in meters. Isosceles unless `lean` is given:
+ * then the apex sits over that end, which makes a right-angled wedge (stairs stringers, roof ends).
+ */
+function createPrism(width: number, height: number, depth: number, lean?: 'left' | 'right'): THREE.BufferGeometry {
   const w = width / 2
   const h = height / 2
   const d = depth / 2
-  const slope = Math.hypot(w, height)
+  const apex = lean === 'left' ? -w : lean === 'right' ? w : 0
+  const slopeRight = Math.hypot(w - apex, height)
+  const slopeLeft = Math.hypot(apex + w, height)
   const positions: number[] = []
   const uvs: number[] = []
   const tri = (points: [number, number, number, number, number][]) => {
@@ -244,12 +249,12 @@ function createPrism(width: number, height: number, depth: number): THREE.Buffer
     tri([[...a, 0, 0], [...c, uLength, vLength], [...e, 0, vLength]])
   }
   // Front (+Z) and back (-Z) triangles.
-  tri([[-w, -h, d, 0, 0], [w, -h, d, width, 0], [0, h, d, w, height]])
-  tri([[w, -h, -d, 0, 0], [-w, -h, -d, width, 0], [0, h, -d, w, height]])
-  // Bottom, right slope, left slope.
+  tri([[-w, -h, d, 0, 0], [w, -h, d, width, 0], [apex, h, d, apex + w, height]])
+  tri([[w, -h, -d, 0, 0], [-w, -h, -d, width, 0], [apex, h, -d, w - apex, height]])
+  // Bottom and the two sides (one side of a wedge is vertical).
   quad([-w, -h, -d], [w, -h, -d], [w, -h, d], [-w, -h, d], width, depth)
-  quad([w, -h, d], [w, -h, -d], [0, h, -d], [0, h, d], depth, slope)
-  quad([-w, -h, -d], [-w, -h, d], [0, h, d], [0, h, -d], depth, slope)
+  quad([w, -h, d], [w, -h, -d], [apex, h, -d], [apex, h, d], depth, slopeRight)
+  quad([-w, -h, -d], [-w, -h, d], [apex, h, d], [apex, h, -d], depth, slopeLeft)
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
@@ -258,7 +263,9 @@ function createPrism(width: number, height: number, depth: number): THREE.Buffer
 }
 
 function createSphere(radius: number): THREE.BufferGeometry {
-  const geometry = new THREE.SphereGeometry(radius, 40, 24)
+  // Small spheres (leaf clumps in a hedge) need far fewer facets than a big ball.
+  const small = radius < 0.6
+  const geometry = new THREE.SphereGeometry(radius, small ? 14 : 40, small ? 9 : 24)
   const uv = geometry.getAttribute('uv') as THREE.BufferAttribute
   for (let i = 0; i < uv.count; i++) {
     uv.setXY(i, uv.getX(i) * 2 * Math.PI * radius, uv.getY(i) * Math.PI * radius)

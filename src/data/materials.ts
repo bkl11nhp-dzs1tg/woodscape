@@ -16,7 +16,7 @@ export interface TextureDef {
   source: string
 }
 
-export type MaterialCategory = 'wood' | 'brick' | 'stone' | 'glass' | 'roofing' | 'metal' | 'plain'
+export type MaterialCategory = 'wood' | 'brick' | 'stone' | 'glass' | 'roofing' | 'metal' | 'plain' | 'plant'
 
 export interface MaterialDef {
   id: string
@@ -31,6 +31,7 @@ export interface MaterialDef {
 const KIT = 'WOODSCAPE Graphics Kit (procedural placeholder)'
 const BATCH_01 = 'ChatGPT art batch 01 (art_inbox/batch_01_collage.png), cut and made tileable'
 const BATCH_01_DERIVED = 'Recolored from a batch 01 texture'
+const BATCH_05 = 'ChatGPT art batch 05 (art_inbox/batch_05_collage.png), cut by tools/cut-batch-05.mjs'
 
 /** Four painted planks of 15 cm per repeat. */
 const WOOD_TILE: [number, number] = [0.79, 0.6]
@@ -42,8 +43,13 @@ const textureList: TextureDef[] = [
   { id: 'tex_wood_cedar', url: '/assets/textures/wood/wood_cedar_albedo.png', tileSize: WOOD_TILE, source: BATCH_01_DERIVED },
   { id: 'tex_wood_birch', url: '/assets/textures/wood/wood_birch_albedo.png', tileSize: WOOD_TILE, source: BATCH_01_DERIVED },
   { id: 'tex_brick_red', url: '/assets/textures/brick/red_brick_albedo.png', tileSize: [0.675, 0.6], source: BATCH_01 },
-  { id: 'tex_stone_masonry', url: '/assets/textures/stone/stone_masonry_albedo.png', tileSize: [1.6, 1.6], source: KIT },
-  { id: 'tex_concrete', url: '/assets/textures/stone/concrete_albedo.png', tileSize: [2, 2], source: KIT },
+  // The stone picture is mirrored 2 x 2 in the file, so one repeat is twice the size of the picture.
+  { id: 'tex_stone_masonry', url: '/assets/textures/stone/stone_masonry_albedo.png', tileSize: [3.2, 3.2], source: BATCH_05 },
+  { id: 'tex_concrete', url: '/assets/textures/stone/concrete_albedo.png', tileSize: [2.4, 2.4], source: BATCH_05 },
+  { id: 'tex_plaster', url: '/assets/textures/stone/plaster_white_albedo.png', tileSize: [2, 2], source: BATCH_05 },
+  { id: 'tex_floor_tile', url: '/assets/textures/tile/floor_tile_albedo.png', tileSize: [1.2, 1.2], source: BATCH_05 },
+  { id: 'tex_glass', url: '/assets/textures/glass/glass_albedo.png', tileSize: [2, 2], source: BATCH_05 },
+  { id: 'tex_hedge', url: null, tileSize: [0.7, 0.7], source: 'Generated in code (clipped leaves)' },
   { id: 'tex_roof_shingles', url: '/assets/textures/roofing/roof_shingles_albedo.png', tileSize: [1.5, 1.5], source: KIT },
   { id: 'tex_glass_tinted', url: '/assets/textures/glass/glass_tinted_albedo.png', tileSize: [1, 1], source: KIT },
   { id: 'tex_roof_terracotta', url: '/assets/textures/roofing/roof_terracotta_albedo.png', tileSize: [1.56, 1.04], source: 'ChatGPT art batch 02 (art_inbox/batch_02_roof_tiles.png), cut to one repeat' },
@@ -62,11 +68,14 @@ const materialList: MaterialDef[] = [
   { id: 'brick_red_painted', name: 'Gạch đỏ (mảng tường)', category: 'brick', textureId: 'tex_brick_red', color: '#ffffff' },
   { id: 'brick_red_solid', name: 'Gạch đỏ (viên)', category: 'brick', textureId: 'tex_brush_neutral', color: '#c8563c' },
   { id: 'stone_masonry_painted', name: 'Đá xây', category: 'stone', textureId: 'tex_stone_masonry', color: '#ffffff' },
-  { id: 'concrete_painted', name: 'Bê tông / vữa', category: 'stone', textureId: 'tex_concrete', color: '#ffffff' },
+  { id: 'concrete_painted', name: 'Bê tông', category: 'stone', textureId: 'tex_concrete', color: '#ffffff' },
+  { id: 'plaster_white', name: 'Vữa trắng', category: 'stone', textureId: 'tex_plaster', color: '#ffffff' },
+  { id: 'floor_tile_painted', name: 'Gạch lát nền', category: 'stone', textureId: 'tex_floor_tile', color: '#ffffff' },
+  { id: 'hedge_leaves', name: 'Hàng cây xén', category: 'plant', textureId: 'tex_hedge', color: '#ffffff' },
   { id: 'roof_terracotta_painted', name: 'Ngói đất nung', category: 'roofing', textureId: 'tex_roof_terracotta', color: '#ffffff' },
   { id: 'roof_shingles_painted', name: 'Ngói lợp', category: 'roofing', textureId: 'tex_roof_shingles', color: '#ffffff' },
   { id: 'glass_tinted_painted', name: 'Kính xanh', category: 'glass', textureId: 'tex_plain', color: '#7fc6f2', opacity: 0.6 },
-  { id: 'glass_clear_painted', name: 'Kính trong', category: 'glass', textureId: 'tex_plain', color: '#e4f3fb', opacity: 0.3 },
+  { id: 'glass_clear_painted', name: 'Kính trong', category: 'glass', textureId: 'tex_glass', color: '#f2f9ff', opacity: 0.32 },
   { id: 'metal_dark', name: 'Kim loại sẫm', category: 'metal', textureId: 'tex_brush_neutral', color: '#55555c' },
   { id: 'chalk_white', name: 'Vạch phấn', category: 'plain', textureId: 'tex_brush_neutral', color: '#ffffff' },
   { id: 'plain_white', name: 'Sơn trắng', category: 'plain', textureId: 'tex_brush_neutral', color: '#f3ede0' },

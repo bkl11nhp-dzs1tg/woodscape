@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { finishDrawing } from '../game/building/drawActions'
+import { confirmPlacement } from '../game/building/PlacementSystem'
 import { deleteObjects, duplicateObjects, groupObjects, transformObjects, ungroupObjects } from '../game/building/commands'
 import { cameraState } from '../game/camera/cameraState'
 import { useWorldStore } from '../stores/worldStore'
@@ -76,6 +77,11 @@ export function useShortcuts(): void {
           return
         }
       }
+      if (editor.activeTool === 'place' && editor.placePending && e.code === 'Enter') {
+        e.preventDefault()
+        confirmPlacement()
+        return
+      }
       const ctrl = e.ctrlKey || e.metaKey
 
       if (ctrl && e.code === 'KeyZ') {
@@ -106,6 +112,7 @@ export function useShortcuts(): void {
       else if (e.code === 'KeyB') editor.setTool('paint')
       else if (e.code === 'KeyL') editor.setTool('mark')
       else if (e.code === 'KeyT') editor.setTool('draw')
+      else if (e.code === 'KeyN') editor.setTool('measure')
       else if (e.code === 'Delete' || e.code === 'Backspace') deleteObjects(editor.selectedIds)
     }
     window.addEventListener('keydown', onKeyDown)

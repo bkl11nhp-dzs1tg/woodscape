@@ -13,6 +13,9 @@ import shapeCircleIcon from '../../assets/icons/shape-circle.svg'
 import shapeRectIcon from '../../assets/icons/shape-rect.svg'
 import shapeTriangleIcon from '../../assets/icons/shape-triangle.svg'
 import { useEffect, useState, type ReactNode } from 'react'
+import { useReveal } from '../../app/useReveal'
+import { IconButton } from '../ui/Icons'
+import { useConstructionStore } from '../../stores/constructionStore'
 import { duplicateSelection } from '../../app/useShortcuts'
 import { getMaterialDef, MATERIALS, TEXTURES } from '../../data/materials'
 import {
@@ -25,6 +28,7 @@ import {
   cutObject,
   groupObjects,
   ungroupObjects,
+  renameGroup,
   setObjectMaterial,
   setOpacity,
   setPaint,
@@ -32,6 +36,8 @@ import {
 } from '../../game/building/commands'
 import { addOpeningsToSelection, addRoofToSelection } from '../../game/building/drawActions'
 import type { RoofKind } from '../../game/building/roof'
+import { CoverSection, FillSection, FloorSection, HouseColourSection, RepeatSection, TemplateSection } from './BuildTools'
+import { NumField, NumRow, NumTriple, Section, SelectField, UNIT_DIGITS, UNIT_SCALE } from './PanelParts'
 import { cutAlongLine, cutOutShape, shapePoints } from '../../game/building/cutting'
 import { FACE_LABELS, resolveFaceMaterialIds } from '../../game/building/faceMaterials'
 import { cameraCommands } from '../../game/camera/cameraCommands'
@@ -39,7 +45,7 @@ import { getDimensions, isBoxLike, isOpening } from '../../game/geometry/Geometr
 import { useEditorStore, type Axis } from '../../stores/editorStore'
 import { showToast } from '../../stores/toastStore'
 import { useWorldStore } from '../../stores/worldStore'
-import { BOX_FACES, type GeometryParams, type LengthUnit, type ShapeKind, type Vec3, type WorldObject } from '../../types/world'
+import { BOX_FACES, type GeometryParams, type ShapeKind, type Vec3, type WorldObject } from '../../types/world'
 
 const SHAPE_LABELS: Record<ShapeKind, string> = {
   box: 'Hộp chữ nhật',
@@ -58,8 +64,6 @@ const SHAPE_LABELS: Record<ShapeKind, string> = {
   cone: 'Hình nón',
 }
 
-const UNIT_SCALE: Record<LengthUnit, number> = { m: 1, cm: 100, mm: 1000 }
-const UNIT_DIGITS: Record<LengthUnit, number> = { m: 3, cm: 1, mm: 0 }
 const MIN_SIZE = 0.005
 const MATERIAL_LIST = Object.values(MATERIALS)
 
@@ -178,8 +182,36 @@ export function CutBar() {
   if (!active) return null
   return (
     <section className="shelf panel cutbar" aria-label="Cắt">
-      {obj ? <CutControls obj={obj} /> : <span className="cut-empty">Chọn một khối</span>}
+      {obj ? (
+        <CutControls obj={obj} />
+      ) : (
+        <div className="cut-controls cut-idle">
+          <CutModeButtons />
+          <span className="cut-empty">Bấm vào khối hoặc tấm muốn cắt</span>
+        </div>
+      )}
     </section>
+  )
+}
+
+/** The three ways to cut: in two, along a line, a shape cut out. Choosable even before anything is picked. */
+function CutModeButtons() {
+  const mode = useEditorStore((s) => s.cutMode)
+  return (
+    <div className="cut-group cut-modes">
+      {CUT_MODES.map((item) => (
+        <button
+          key={item.id}
+          className={item.id === mode ? 'icon-btn active' : 'icon-btn'}
+          title={item.label}
+          aria-label={item.label}
+          onClick={() => useEditorStore.setState({ cutMode: item.id, cutPicks: null })}
+        >
+          <img src={item.icon} alt="" />
+          <span className="lbl">{item.label}</span>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -207,22 +239,7 @@ function CutControls({ obj }: { obj: WorldObject }) {
     useEditorStore.setState({ selectedIds: [pieces[0]], cutPicks: null })
   }
 
-  const modes = (
-    <div className="cut-group cut-modes">
-      {CUT_MODES.map((item) => (
-        <button
-          key={item.id}
-          className={item.id === mode ? 'icon-btn active' : 'icon-btn'}
-          title={item.label}
-          aria-label={item.label}
-          onClick={() => useEditorStore.setState({ cutMode: item.id, cutPicks: null })}
-        >
-          <img src={item.icon} alt="" />
-          <span className="lbl">{item.label}</span>
-        </button>
-      ))}
-    </div>
-  )
+  const modes = <CutModeButtons />
 
   if (!cuttable) {
     return (
@@ -367,79 +384,100 @@ const DIMENSION_FIELDS: Record<ShapeKind, [string, string][]> = {
   cone: [['Bán kính đáy', 'radius'], ['Cao (Y)', 'height']],
 }
 
+/** Nothing selected: a short reminder that shows when edit mode starts and when the pointer comes near, then steps aside. */
+function IdleHint() {
+  const shown = useReveal('idle', (x, y, w) => x > w - 360 && y < 240, 5)
+  return (
+    <aside className={shown ? 'properties panel pp idle reveal' : 'properties panel pp idle reveal hidden'}>
+      <p className="idle-text">
+        Bấm vào một vật để chỉnh, hoặc <strong>Tạo hình</strong> để thêm vật mới.
+      </p>
+    </aside>
+  )
+}
+
 /** Shown when several objects are selected: act on them together. */
 function MultiPanel({ ids }: { ids: string[] }) {
   const objects = useWorldStore((s) => s.objects)
+  const unit = useEditorStore((s) => s.unit)
   const groups = new Set(ids.map((id) => objects[id]?.groupId))
+  const groupName = ids.map((id) => objects[id]?.groupName).find(Boolean) ?? ''
+  const [draftName, setDraftName] = useState('')
   const roofPitch = useEditorStore((s) => s.roofPitch)
   const setRoofPitch = useEditorStore((s) => s.setRoofPitch)
   const roofKind = useEditorStore((s) => s.roofKind)
   const setRoofKind = useEditorStore((s) => s.setRoofKind)
   const oneGroup = groups.size === 1 && !groups.has(undefined)
   return (
-    <aside className="properties panel multi">
-      <header className="multi-head">
-        <h2>{ids.length} vật thể</h2>
-        <span className="badge">{oneGroup ? 'Một nhóm' : 'Chọn rời'}</span>
-      </header>
-      <p className="muted lead">
-        {oneGroup ? 'Chọn, dời và xoay cùng nhau. Kéo mũi tên để dời cả cụm.' : 'Gom nhóm để lần sau chạm một cái là chọn cả cụm.'}
-      </p>
-
-      <h3>Mái và cửa</h3>
-      <div className="form-grid">
-        <label>
-          <span>Kiểu mái</span>
-          <select value={roofKind} onChange={(e) => setRoofKind(e.target.value as RoofKind)}>
-            <option value="gable">Hai dốc</option>
-            <option value="hip">Mái hông</option>
-            <option value="flat">Mái bằng</option>
-          </select>
-        </label>
-        <label>
-          <span>Độ dốc</span>
-          <select value={roofPitch} disabled={roofKind === 'flat'} onChange={(e) => setRoofPitch(Number(e.target.value))}>
-            {[15, 25, 30, 40, 50].map((degrees) => (
-              <option key={degrees} value={degrees}>
-                {degrees}°
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="button-row">
-        <button className="primary" onClick={() => addRoofToSelection(roofPitch, roofKind)} title="Dựng mái phủ lên các bức tường đang chọn">
-          Thêm mái
-        </button>
-        <button onClick={addOpeningsToSelection} title="Thêm một cửa chính và cửa sổ cách đều lên các bức tường đang chọn">
-          Thêm cửa
-        </button>
-      </div>
-
-      <h3>Nhóm</h3>
-      <div className="button-row three">
+    <aside className="properties panel pp">
+      <header className="pp-head">
         {oneGroup ? (
-          <button onClick={() => ungroupObjects(ids)} title="Tách nhóm (Ctrl+Shift+G)">
-            Tách nhóm
-          </button>
+          <input
+            key={groupName}
+            type="text"
+            className="name-input"
+            placeholder="Đặt tên nhóm"
+            aria-label="Tên nhóm"
+            defaultValue={groupName}
+            onFocus={(e) => e.target.select()}
+            onBlur={(e) => e.target.value.trim() !== groupName && renameGroup(ids, e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+          />
         ) : (
-          <button className="primary" onClick={() => groupObjects(ids)} title="Gom nhóm (Ctrl+G)">
-            Gom nhóm
-          </button>
+          <input
+            type="text"
+            className="name-input"
+            placeholder="Tên nhóm (không bắt buộc)"
+            aria-label="Tên nhóm"
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+          />
         )}
-        <button onClick={duplicateSelection} title="Nhân bản (Ctrl+D)">
-          Nhân bản
-        </button>
-        <button className="danger" onClick={() => deleteObjects(ids)} title="Xoá (Delete)">
-          Xoá
-        </button>
+        <p className="pp-sub">
+          <span className="badge">{oneGroup ? 'Một nhóm' : 'Chọn rời'}</span>
+          {ids.length} vật thể
+        </p>
+      </header>
+
+      <div className="pp-actions">
+        {oneGroup ? (
+          <IconButton icon="ungroup" text="Tách nhóm" label="Tách nhóm (Ctrl+Shift+G)" onClick={() => ungroupObjects(ids)} />
+        ) : (
+          <IconButton icon="group" text="Gom nhóm" label="Gom nhóm (Ctrl+G)" primary onClick={() => groupObjects(ids, draftName)} />
+        )}
+        <IconButton icon="duplicate" text="Nhân bản" label="Nhân bản (Ctrl+D)" onClick={duplicateSelection} />
+        <IconButton icon="trash" text="Xoá" label="Xoá (Delete)" danger onClick={() => deleteObjects(ids)} />
       </div>
 
-      <p className="keys-hint">
-        <kbd>Ctrl</kbd> / <kbd>Shift</kbd> + bấm: thêm bớt
-        <br />
-        <kbd>Alt</kbd> + bấm: chọn riêng một phần
-      </p>
+      <Section title="Mái và cửa" open>
+        <NumRow>
+          <SelectField
+            label="Kiểu mái"
+            value={roofKind}
+            onChange={(v) => setRoofKind(v as RoofKind)}
+            options={[
+              { value: 'gable', label: 'Hai dốc' },
+              { value: 'hip', label: 'Mái hông' },
+              { value: 'flat', label: 'Mái bằng' },
+            ]}
+          />
+          <SelectField
+            label="Độ dốc"
+            value={String(roofPitch)}
+            onChange={(v) => setRoofPitch(Number(v))}
+            options={[15, 25, 30, 40, 50].map((degrees) => ({ value: String(degrees), label: `${degrees}°` }))}
+          />
+        </NumRow>
+        <div className="pp-actions">
+          <IconButton icon="roof" text="Thêm mái" label="Dựng mái phủ lên các bức tường đang chọn" primary onClick={() => addRoofToSelection(roofPitch, roofKind)} />
+          <IconButton icon="door" text="Thêm cửa" label="Thêm cửa chính và cửa sổ cách đều lên các bức tường đang chọn" onClick={() => addOpeningsToSelection()} />
+        </div>
+      </Section>
+      <HouseColourSection ids={ids} />
+      <FloorSection ids={ids} />
+      <RepeatSection ids={ids} unit={unit} />
+      <TemplateSection ids={ids} />
+
     </aside>
   )
 }
@@ -452,22 +490,17 @@ export function PropertiesPanel() {
   const settingsOpen = useEditorStore((s) => s.settingsOpen)
   const tool = useEditorStore((s) => s.activeTool)
   const appMode = useEditorStore((s) => s.appMode)
+  const building = useConstructionStore((s) => s.active !== null)
 
   // The settings popover opens in this corner; step aside instead of sitting under it.
   // In view mode there is nothing to edit.
-  if (settingsOpen || appMode === 'view' || tool === 'cut') return null
+  if (settingsOpen || appMode === 'view' || tool === 'cut' || building) return null
 
   if (selectedIds.length > 1) return <MultiPanel ids={selectedIds} />
 
   if (!obj) {
     return (
-      <aside className="properties panel idle">
-        <h2>Coastal Valley</h2>
-        <p className="muted">
-          Bấm <strong>Tạo hình</strong> để thêm vật thể, hoặc bấm vào một vật thể có sẵn để chỉnh sửa. Bấm đúp vào cửa
-          để mở.
-        </p>
-      </aside>
+      <IdleHint />
     )
   }
 
@@ -485,21 +518,29 @@ export function PropertiesPanel() {
   }
 
   return (
-    <aside className="properties panel">
-      <input
-        key={obj.id + obj.name}
-        type="text"
-        className="name-input"
-        onFocus={(e) => e.target.select()}
-        aria-label="Tên vật thể"
-        defaultValue={obj.name}
-        onBlur={(e) => renameObject(obj.id, e.target.value.trim() || obj.name)}
-        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-      />
-      <p className="muted">
-        {SHAPE_LABELS[obj.geometry.shape]}
-        {obj.groupId && ' · thuộc một nhóm (bấm thường để chọn cả nhóm)'}
-      </p>
+    <aside className="properties panel pp">
+      <header className="pp-head">
+        <input
+          key={obj.id + obj.name}
+          type="text"
+          className="name-input"
+          onFocus={(e) => e.target.select()}
+          aria-label="Tên vật thể"
+          defaultValue={obj.name}
+          onBlur={(e) => renameObject(obj.id, e.target.value.trim() || obj.name)}
+          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        />
+        <p className="pp-sub">
+          {SHAPE_LABELS[obj.geometry.shape]}
+          {obj.groupId && <span className="badge">{obj.groupName ?? 'Nhóm'}</span>}
+        </p>
+      </header>
+
+      <div className="pp-actions">
+        <IconButton icon="focus" text="Lấy nét" label="Lấy nét: đưa camera tới vật (F)" onClick={() => cameraCommands.emit({ type: 'focus' })} />
+        <IconButton icon="duplicate" text="Nhân bản" label="Nhân bản (Ctrl+D)" onClick={duplicateSelection} />
+        <IconButton icon="trash" text="Xoá" label="Xoá (Delete)" danger onClick={() => deleteObjects([obj.id])} />
+      </div>
 
       {isOpening(obj.geometry.shape) && (
         <div className="opening-controls">
@@ -518,95 +559,83 @@ export function PropertiesPanel() {
               <option value="right">Bản lề phải</option>
             </select>
           )}
-          <p className="muted note">Đặt lên tường để tường tự mở ô. Bấm đúp vào cửa để mở / đóng.</p>
         </div>
       )}
 
-
-      <h3>Kích thước</h3>
-      {DIMENSION_FIELDS[obj.geometry.shape].map(([label, key]) => (
-        <NumberField
-          key={key}
-          label={label}
-          suffix={unit}
-          digits={digits}
-          value={(geometry[key] as number) * scale}
-          onCommit={(value) =>
-            resizeObject(obj.id, { ...obj.geometry, [key]: Math.max(MIN_SIZE, value / scale) } as GeometryParams)
-          }
-        />
-      ))}
-
-      <h3>Vị trí</h3>
-      {['X', 'Y', 'Z'].map((axis, i) => (
-        <NumberField
-          key={axis}
-          label={axis}
-          suffix={unit}
-          digits={digits}
-          value={position[i] * scale}
-          onCommit={(value) => moveObject(obj.id, setAxis(position, i, value / scale))}
-        />
-      ))}
-
-      <h3>Góc xoay</h3>
-      {['X', 'Y', 'Z'].map((axis, i) => (
-        <NumberField
-          key={axis}
-          label={axis}
-          suffix="°"
-          digits={1}
-          value={(rotation[i] * 180) / Math.PI}
-          onCommit={(value) => rotateObject(obj.id, setAxis(rotation, i, (value * Math.PI) / 180))}
-        />
-      ))}
-
-      <h3>Vật liệu</h3>
-      <MaterialSelect label="Vật liệu" value={obj.materialId} onChange={(id) => setObjectMaterial(obj.id, id)} />
-      {isBoxLike(obj.geometry.shape) && (
-        <details open={hasFaceOverrides}>
-          <summary>Vật liệu từng mặt</summary>
-          {BOX_FACES.map((face, i) => (
-            <div key={face} className="face-row">
-              <span className="face-name">{FACE_LABELS[face]}</span>
-              <MaterialSelect
-                label={`Mặt ${FACE_LABELS[face]}`}
-                value={faceIds[i]}
-                onChange={(id) => setFaceMaterial(obj.id, face, id)}
-              />
-            </div>
+      <Section title="Kích thước" open>
+        <NumRow>
+          {DIMENSION_FIELDS[obj.geometry.shape].map(([label, key]) => (
+            <NumField
+              key={key}
+              label={label}
+              digits={digits}
+              min={MIN_SIZE * scale}
+              value={(geometry[key] as number) * scale}
+              onCommit={(value) => resizeObject(obj.id, { ...obj.geometry, [key]: Math.max(MIN_SIZE, value / scale) } as GeometryParams)}
+            />
           ))}
-          <button className="text-button" disabled={!hasFaceOverrides} onClick={() => setObjectMaterial(obj.id, obj.materialId)}>
-            Đặt lại 6 mặt về vật liệu chung
-          </button>
-        </details>
-      )}
-
-      <h3>Sơn và độ trong suốt</h3>
-      <div className="material-row">
-        <span className="swatch" style={{ background: obj.paint?.color ?? 'transparent' }} />
-        <span className="grow muted">
-          {obj.paint ? `Sơn phủ ${Math.round(obj.paint.strength * 100)}%` : 'Chưa sơn — dùng công cụ Sơn'}
-        </span>
-        {obj.paint && (
-          <button className="text-button" onClick={() => setPaint(obj.id, undefined)}>
-            Gỡ
-          </button>
+        </NumRow>
+        {obj.geometry.shape === 'prism' && (
+          <SelectField
+            label="Dạng tam giác"
+            value={obj.geometry.lean ?? 'none'}
+            onChange={(value) => {
+              const { lean: _old, ...rest } = obj.geometry as Extract<GeometryParams, { shape: 'prism' }>
+              resizeObject(obj.id, (value === 'none' ? rest : { ...rest, lean: value }) as GeometryParams)
+            }}
+            options={[
+              { value: 'none', label: 'Cân (hai dốc)' },
+              { value: 'right', label: 'Nêm vuông (cạnh đứng bên phải)' },
+              { value: 'left', label: 'Nêm vuông (cạnh đứng bên trái)' },
+            ]}
+          />
         )}
-      </div>
-      <OpacitySlider key={obj.id} obj={obj} />
+      </Section>
 
-      <div className="actions">
-        <button onClick={() => cameraCommands.emit({ type: 'focus' })} title="Đưa camera tới vật thể (F)">
-          Lấy nét
-        </button>
-        <button onClick={duplicateSelection} title="Nhân bản (Ctrl+D)">
-          Nhân bản
-        </button>
-        <button className="danger" onClick={() => deleteObjects([obj.id])} title="Xoá (Delete)">
-          Xoá
-        </button>
-      </div>
+      <Section title="Vị trí và xoay" open>
+        <NumTriple label="Vị trí" values={position.map((v) => v * scale)} digits={digits} onCommit={(i, value) => moveObject(obj.id, setAxis(position, i, value / scale))} />
+        <NumTriple
+          label="Xoay (độ)"
+          values={rotation.map((v) => (v * 180) / Math.PI)}
+          digits={1}
+          onCommit={(i, value) => rotateObject(obj.id, setAxis(rotation, i, (value * Math.PI) / 180))}
+        />
+      </Section>
+
+      <Section title="Vật liệu" open>
+        <MaterialSelect label="Vật liệu" value={obj.materialId} onChange={(id) => setObjectMaterial(obj.id, id)} />
+        {isBoxLike(obj.geometry.shape) && (
+          <details className="faces" open={hasFaceOverrides}>
+            <summary>Vật liệu từng mặt</summary>
+            {BOX_FACES.map((face, i) => (
+              <div key={face} className="face-row">
+                <span className="face-name">{FACE_LABELS[face]}</span>
+                <MaterialSelect label={`Mặt ${FACE_LABELS[face]}`} value={faceIds[i]} onChange={(id) => setFaceMaterial(obj.id, face, id)} />
+              </div>
+            ))}
+            <button className="text-button" disabled={!hasFaceOverrides} onClick={() => setObjectMaterial(obj.id, obj.materialId)}>
+              Đặt lại 6 mặt về vật liệu chung
+            </button>
+          </details>
+        )}
+      </Section>
+
+      <Section title="Sơn và độ đục">
+        <div className="material-row">
+          <span className="swatch" style={{ background: obj.paint?.color ?? 'transparent' }} />
+          <span className="grow muted">{obj.paint ? `Sơn phủ ${Math.round(obj.paint.strength * 100)}%` : 'Chưa sơn (dùng công cụ Sơn)'}</span>
+          {obj.paint && (
+            <button className="text-button" onClick={() => setPaint(obj.id, undefined)}>
+              Gỡ
+            </button>
+          )}
+        </div>
+        <OpacitySlider key={obj.id} obj={obj} />
+      </Section>
+
+      {!obj.groupId && <FillSection key={obj.id} obj={obj} unit={unit} />}
+      <CoverSection key={`cover_${obj.id}`} obj={obj} />
+      <RepeatSection key={`repeat_${obj.id}`} ids={[obj.id]} unit={unit} />
     </aside>
   )
 }

@@ -5,6 +5,8 @@ export type ViewPreset = 'perspective' | 'top' | 'front' | 'side'
 export type CameraCommand =
   | { type: 'view'; preset: ViewPreset }
   | { type: 'focus' }
+  /** Act on what the middle of the screen points at (the on-screen action button). */
+  | { type: 'tap' }
   /** Move over a point on the map, keeping the current height above ground. */
   | { type: 'goto'; x: number; z: number }
 

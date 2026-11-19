@@ -5,7 +5,7 @@ import { useEditorStore } from '../../stores/editorStore'
 import { useWorldStore } from '../../stores/worldStore'
 import { getTerrainHeight } from '../environment/terrain'
 import { paintObjects } from './commands'
-import { setGizmoDragging } from './interaction'
+import { objectIdFromHit, setGizmoDragging } from './interaction'
 import { connectedRegion } from './selection'
 
 /** Mouse pointer for the paint tool: a round brush filled with the current color. */
@@ -47,10 +47,7 @@ export function PaintBrush() {
       const group = scene.getObjectByName('world-objects')
       const hit = group ? raycaster.intersectObjects(group.children, true)[0] : undefined
       const objects = useWorldStore.getState().objects
-      for (let node: THREE.Object3D | null = hit?.object ?? null; node; node = node.parent) {
-        if (objects[node.name]) return node.name
-      }
-      return null
+      return objectIdFromHit(hit, objects)
     }
     const apply = (e: PointerEvent) => {
       const id = objectAt(e)

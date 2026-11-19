@@ -28,6 +28,10 @@ export function createDemoWorld(): WorldData {
   }
 }
 
+export function createEmptyWorld(): WorldData {
+  return { schemaVersion: SCHEMA_VERSION, worldName: 'Đất trống', objects: {}, order: [] }
+}
+
 export function getWorldData(): WorldData {
   const { worldName, objects, order } = useWorldStore.getState()
   return { schemaVersion: SCHEMA_VERSION, worldName, objects, order }

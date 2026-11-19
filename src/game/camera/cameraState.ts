@@ -14,4 +14,6 @@ export const virtualInput = {
   moveForward: 0,
   /** Up/down, -1..1. */
   vertical: 0,
+  /** Run: the on-screen run button is held. */
+  fast: false,
 }

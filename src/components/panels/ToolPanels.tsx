@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
+import { Glyph, IconButton, type IconName } from '../ui/Icons'
 import { cameraCommands } from '../../game/camera/cameraCommands'
 import { cameraState, virtualInput } from '../../game/camera/cameraState'
 import { undo } from '../../game/core/history'
 import { coastFactor, forestFactor, getTerrainHeight } from '../../game/environment/terrain'
 import { finishDrawing } from '../../game/building/drawActions'
 import type { DrawKind } from '../../game/building/drawing'
+import { getHousePlan, planMetrics } from '../../game/building/housePlans'
 import { confirmPlacement } from '../../game/building/PlacementSystem'
+import { getShapePreset } from '../../data/shapePresets'
+import { formatLength } from '../../services/units'
 import { MATERIALS } from '../../data/materials'
 import { cancelPendingMove, confirmPendingMove } from '../../game/building/pending'
 import { useEditorStore } from '../../stores/editorStore'
@@ -55,16 +59,10 @@ export function PaintBar() {
           onChange={(e) => setPaint({ strength: Number(e.target.value) / 100 })}
         />
       </label>
-      <button
-        className={region ? 'active' : ''}
-        title="Một lần chạm sơn mọi phần cùng loại dính liền nhau (cả dãy tường, cả mái)"
-        onClick={() => setPaint({ region: !region })}
-      >
-        Cả vùng
-      </button>
-      <button className={erase ? 'active' : ''} onClick={() => setPaint({ erase: !erase })}>
-        Gỡ sơn
-      </button>
+      <div className="bar-actions">
+        <IconButton icon="fill" text="Cả vùng" label="Sơn cả vùng: một lần chạm phủ mọi phần cùng loại dính liền (cả dãy tường, cả mái)" pressed={region} onClick={() => setPaint({ region: !region })} />
+        <IconButton icon="eraser" text="Gỡ sơn" label="Gỡ sơn" pressed={erase} onClick={() => setPaint({ erase: !erase })} />
+      </div>
     </section>
   )
 }
@@ -294,6 +292,21 @@ export function TouchControls() {
 
   useEffect(() => releaseStick, [])
 
+  const cameraMode = useEditorStore((s) => s.cameraMode)
+  const setCameraMode = useEditorStore((s) => s.setCameraMode)
+  const holdRun = {
+    onPointerDown: (e: React.PointerEvent) => {
+      e.currentTarget.setPointerCapture(e.pointerId)
+      virtualInput.fast = true
+    },
+    onPointerUp: () => {
+      virtualInput.fast = false
+    },
+    onPointerCancel: () => {
+      virtualInput.fast = false
+    },
+  }
+
   return (
     <div className="touch-controls">
       <div
@@ -306,14 +319,35 @@ export function TouchControls() {
         onPointerUp={releaseStick}
         onPointerCancel={releaseStick}
       >
-        <div className="knob" ref={knob} />
+        <svg className="stick-deco" viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r="48" />
+          <circle cx="50" cy="50" r="34" className="inner" />
+          <path d="M50 2l3 5-3 5-3-5zM98 50l-5 3-5-3 5-3zM50 98l-3-5 3-5 3 5zM2 50l5-3 5 3-5 3z" className="tick" />
+        </svg>
+        <div className="knob" ref={knob}>
+          <Glyph name="star" size={22} />
+        </div>
       </div>
-      <div className="lift">
-        <button aria-label="Lên" {...hold(1)}>
-          ▲
+      <div className="vcluster">
+        <button className="vbtn big" aria-label="Chạm: tương tác với thứ ở giữa màn hình" onClick={() => cameraCommands.emit({ type: 'tap' })}>
+          <Glyph name="hand" size={32} />
+          <span>Chạm</span>
         </button>
-        <button aria-label="Xuống" {...hold(-1)}>
-          ▼
+        <button className="vbtn mid up" aria-label="Lên" {...hold(1)}>
+          <Glyph name="arrowUp" size={24} />
+          <span>Lên</span>
+        </button>
+        <button className="vbtn mid down" aria-label="Xuống" {...hold(-1)}>
+          <Glyph name="arrowDown" size={24} />
+          <span>Xuống</span>
+        </button>
+        <button className="vbtn mid fast" aria-label="Chạy nhanh" {...holdRun}>
+          <Glyph name="run" size={24} />
+          <span>Chạy</span>
+        </button>
+        <button className="vbtn mid view" aria-label="Đổi cách nhìn" onClick={() => setCameraMode(cameraMode === 'walk' ? 'orbit' : 'walk')}>
+          <Glyph name="eye" size={24} />
+          <span>{cameraMode === 'walk' ? 'Bay' : 'Đi bộ'}</span>
         </button>
       </div>
     </div>
@@ -354,6 +388,8 @@ export function ConfirmBar() {
   const pending = useEditorStore((s) => s.placePending)
   const pendingMove = useEditorStore((s) => s.pendingMove)
   const rotatePlacement = useEditorStore((s) => s.rotatePlacement)
+  const unit = useEditorStore((s) => s.unit)
+  const house = getShapePreset(useEditorStore((s) => s.placingPresetId))?.house
 
   if (pendingMove) {
     return (
@@ -366,36 +402,38 @@ export function ConfirmBar() {
       </div>
     )
   }
-  if (tool === 'place' && (pending || COARSE)) {
+  if (tool === 'place' && (pending || COARSE || house)) {
+    const plan = house ? getHousePlan(house) : undefined
+    const m = plan ? planMetrics(plan) : null
+    const spin = house ? Math.PI / 2 : Math.PI / 4
+    const message = m
+      ? pending
+        ? `${plan!.name}: ${formatLength(m.width, unit)} × ${formatLength(m.depth, unit)}, cao ${formatLength(m.height, unit)}, ${m.storeys} tầng. Xoay rồi bấm Bắt đầu xây`
+        : 'Bấm lên mặt đất để chọn chỗ xây, sẽ thấy bản thiết kế'
+      : pending
+        ? 'Xoay rồi bấm Đặt, hoặc chạm lại vào chỗ đó'
+        : 'Chạm lên mặt đất để chọn chỗ đặt'
     return (
       <div className="confirm-bar panel" role="group" aria-label="Đặt vật">
-        <span>{pending ? 'Xoay rồi bấm Đặt, hoặc chạm lại vào chỗ đó' : 'Chạm lên mặt đất để chọn chỗ đặt'}</span>
-        <button title="Xoay trái 45°" onClick={() => rotatePlacement(-Math.PI / 4)}>
-          ⟲
-        </button>
-        <button title="Xoay phải 45°" onClick={() => rotatePlacement(Math.PI / 4)}>
-          ⟳
-        </button>
-        {pending && (
-          <button className="primary" onClick={confirmPlacement}>
-            Đặt ✓
-          </button>
-        )}
-        <button onClick={() => useEditorStore.getState().cancel()}>Huỷ</button>
+        <span>{message}</span>
+        <IconButton icon="rotateLeft" text="Trái" label={`Xoay trái ${house ? 90 : 45}°`} onClick={() => rotatePlacement(-spin)} />
+        <IconButton icon="rotateRight" text="Phải" label={`Xoay phải ${house ? 90 : 45}°`} onClick={() => rotatePlacement(spin)} />
+        {pending && <IconButton icon={house ? 'build' : 'check'} label={house ? 'Bắt đầu xây' : 'Đặt'} primary text={house ? 'Bắt đầu xây' : 'Đặt'} onClick={confirmPlacement} />}
+        <IconButton icon="close" text="Huỷ" label="Huỷ" danger onClick={() => useEditorStore.getState().cancel()} />
       </div>
     )
   }
   return null
 }
 
-const DRAW_KINDS: { id: DrawKind; label: string }[] = [
-  { id: 'wall', label: 'Tường' },
-  { id: 'fence', label: 'Hàng rào' },
-  { id: 'path', label: 'Lối đi' },
+const DRAW_KINDS: { id: DrawKind; label: string; icon: IconName }[] = [
+  { id: 'wall', label: 'Tường', icon: 'wall' },
+  { id: 'fence', label: 'Hàng rào', icon: 'fence' },
+  { id: 'path', label: 'Lối đi', icon: 'path' },
 ]
 
 const DRAW_MATERIALS: Record<DrawKind, string[]> = {
-  wall: ['brick_red_painted', 'stone_masonry_painted', 'concrete_painted', 'plain_white', 'pine_painted'],
+  wall: ['brick_red_painted', 'stone_masonry_painted', 'concrete_painted', 'plaster_white', 'plain_white', 'pine_painted'],
   fence: ['oak_painted', 'pine_painted', 'walnut_painted', 'birch_painted', 'cedar_painted'],
   path: ['concrete_painted', 'stone_masonry_painted', 'pine_painted', 'brick_red_painted'],
 }
@@ -417,27 +455,17 @@ export function DrawBar() {
     <section className="shelf panel drawbar" aria-label="Vẽ">
       <div className="drawbar-row">
       <div className="drawbar-group">
-        <div className="segmented">
+        <div className="bar-actions">
           {DRAW_KINDS.map((item) => (
-            <button key={item.id} className={item.id === kind ? 'active' : ''} onClick={() => setKind(item.id)}>
-              {item.label}
-            </button>
+            <IconButton key={item.id} icon={item.icon} text={item.label} label={item.label} pressed={item.id === kind} onClick={() => setKind(item.id)} />
           ))}
         </div>
       </div>
-      <div className="drawbar-group draw-actions">
-        <button className={straight ? 'active' : ''} aria-pressed={straight} onClick={() => setStraight(!straight)} title="Giữ đường kẻ thẳng ngang, dọc hoặc chéo 45° (giữ Shift trên bàn phím)">
-          Thẳng
-        </button>
-        <button disabled={points.length === 0} onClick={() => setPoints(points.slice(0, -1))} title="Bỏ điểm vừa bấm (Backspace)">
-          ↶ Lùi
-        </button>
-        <button disabled={points.length < 3} onClick={() => finishDrawing(true)} title="Nối điểm cuối với điểm đầu (Shift+Enter)">
-          Khép vòng
-        </button>
-        <button className="primary" disabled={points.length < 2} onClick={() => finishDrawing(false)} title="Hoàn thành đường vừa kẻ (Enter)">
-          Xong
-        </button>
+      <div className="drawbar-group bar-actions">
+        <IconButton icon="straight" text="Thẳng" label="Kẻ thẳng: giữ đường ngang, dọc hoặc chéo 45° (giữ Shift)" pressed={straight} onClick={() => setStraight(!straight)} />
+        <IconButton icon="undo" text="Lùi" label="Lùi một điểm (Backspace)" disabled={points.length === 0} onClick={() => setPoints(points.slice(0, -1))} />
+        <IconButton icon="loop" text="Khép vòng" label="Khép vòng: nối điểm cuối với điểm đầu (Shift+Enter)" disabled={points.length < 3} onClick={() => finishDrawing(true)} />
+        <IconButton icon="check" text="Xong" label="Xong (Enter)" primary disabled={points.length < 2} onClick={() => finishDrawing(false)} />
       </div>
       </div>
       <div className="drawbar-row">
@@ -489,16 +517,17 @@ export function DrawBar() {
 /** Small bar for the marking tool: keep chalk lines straight. */
 export function MarkBar() {
   const active = useEditorStore((s) => s.activeTool === 'mark')
+  const mode = useEditorStore((s) => s.markMode)
+  const setMode = useEditorStore((s) => s.setMarkMode)
   const straight = useEditorStore((s) => s.straightLock)
   const setStraight = useEditorStore((s) => s.setStraightLock)
   if (!active) return null
   return (
     <section className="shelf panel drawbar markbar" aria-label="Vạch dấu">
-      <div className="drawbar-group draw-actions">
-        <button className={straight ? 'active' : ''} aria-pressed={straight} onClick={() => setStraight(!straight)} title="Giữ đường kẻ thẳng ngang, dọc hoặc chéo 45° (giữ Shift trên bàn phím)">
-          Thẳng
-        </button>
-        <span className="muted">{straight ? 'Đường kẻ luôn thẳng' : 'Giữ Shift hoặc bật Thẳng để kẻ đường thẳng'}</span>
+      <div className="drawbar-group bar-actions">
+        <IconButton icon="line" text="Đường thẳng" label="Đường thẳng: bấm từng điểm để kẻ đường giữa các điểm" pressed={mode === 'line'} onClick={() => setMode('line')} />
+        <IconButton icon="pen" text="Bút vẽ" label="Bút vẽ: giữ chuột kéo để vẽ tự do, thả ra thì hiện số đo" pressed={mode === 'pen'} onClick={() => setMode('pen')} />
+        {mode === 'line' && <IconButton icon="straight" text="Thẳng" label="Kẻ thẳng: giữ đường ngang, dọc hoặc chéo 45° (giữ Shift)" pressed={straight} onClick={() => setStraight(!straight)} />}
       </div>
     </section>
   )

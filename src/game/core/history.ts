@@ -42,6 +42,19 @@ export function redo(): void {
   useHistoryStore.setState({ undoStack: [...undoStack, command], redoStack: redoStack.slice(0, -1) })
 }
 
+/** Folds every command recorded after the stack held `length` entries into one, so a whole build undoes in one step. */
+export function mergeSince(length: number, label: string): void {
+  const { undoStack } = useHistoryStore.getState()
+  if (undoStack.length - length < 2) return
+  const parts = undoStack.slice(length)
+  const merged: Command = {
+    label,
+    execute: () => parts.forEach((part) => part.execute()),
+    undo: () => [...parts].reverse().forEach((part) => part.undo()),
+  }
+  useHistoryStore.setState({ undoStack: [...undoStack.slice(0, length), merged] })
+}
+
 export function clearHistory(): void {
   useHistoryStore.setState({ undoStack: [], redoStack: [] })
 }

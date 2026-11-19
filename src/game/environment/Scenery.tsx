@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
+import { useEditorStore } from '../../stores/editorStore'
+import { QUALITY } from '../core/quality'
 import { createRng } from '../core/random'
 import { getToonGradient } from '../materials/MaterialFactory'
 import { biomeAt, flatness, getTerrainHeight, type Biome } from './terrain'
@@ -354,14 +356,14 @@ export function addPalm(parts: Parts, x: number, y: number, z: number, s: number
 /** How many of the candidate spots in each zone grow a tree. */
 const TREE_DENSITY: Record<Biome, number> = { water: 0, beach: 0.1, riverbank: 0.05, plain: 0.08, forest: 0.85, highland: 0.07 }
 
-function generate(): Parts {
+function generate(treeLimit = 640): Parts {
   const rng = createRng(20261116)
   const parts: Parts = { wood: [], leaves: [], needles: [], palms: [], rocks: [] }
 
   // Trees, by zone: dense mixed forest on the foothills, scattered broadleaf on
   // the plain, pines up high, palms on the beach, small willows by the river.
   let trees = 0
-  for (let i = 0; i < 9000 && trees < 640; i++) {
+  for (let i = 0; i < 9000 && trees < treeLimit; i++) {
     const x = -380 + rng() * 560
     const z = -380 + rng() * 760
     const chance = rng()
@@ -500,7 +502,7 @@ export function buildPartMeshes(parts: Parts): THREE.InstancedMesh[] {
 }
 
 export function Scenery() {
-  const meshes = useMemo(() => buildPartMeshes(generate()), [])
+  const meshes = useMemo(() => buildPartMeshes(generate(Math.round(640 * QUALITY[useEditorStore.getState().qualityLevel].trees))), [])
 
   useEffect(() => () => meshes.forEach((mesh) => mesh.dispose()), [meshes])
 

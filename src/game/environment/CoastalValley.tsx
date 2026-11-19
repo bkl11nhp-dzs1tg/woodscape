@@ -1,7 +1,8 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { createBrushTexture } from '../materials/TextureRegistry'
+import { atmosphere } from './atmosphere'
 import { createGrassTexture, GRASS_TILE } from './Grass'
 import {
   coastFactor,
@@ -68,8 +69,22 @@ function createTerrainGeometry(): THREE.BufferGeometry {
   return geometry
 }
 
+const snowCover = { value: 0 }
+
+/** Lets the ground whiten as snow settles: the colour is mixed toward white by one shared amount. */
+function coverWithSnow(shader: THREE.WebGLProgramParametersWithUniforms) {
+  shader.uniforms.uSnow = snowCover
+  shader.fragmentShader =
+    'uniform float uSnow;\n' +
+    shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n\tdiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.96, 1.0), uSnow * 0.88);')
+}
+
 export function Terrain() {
   const geometry = useMemo(createTerrainGeometry, [])
+  const material = useRef<THREE.MeshLambertMaterial>(null)
+  useFrame(() => {
+    snowCover.value = atmosphere.snow
+  })
   const grass = useMemo(() => {
     const texture = createGrassTexture()
     texture.repeat.setScalar(TERRAIN_SIZE / GRASS_TILE)
@@ -79,7 +94,7 @@ export function Terrain() {
   return (
     <group>
       <mesh geometry={geometry} receiveShadow>
-        <meshLambertMaterial vertexColors map={grass} />
+        <meshLambertMaterial ref={material} vertexColors map={grass} onBeforeCompile={coverWithSnow} customProgramCacheKey={() => 'terrain-snow'} />
       </mesh>
       {/* Low ground beyond the terrain edge so the far hills never show a gap. */}
       <mesh rotation-x={-Math.PI / 2} position-y={18}>

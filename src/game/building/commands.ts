@@ -220,14 +220,21 @@ export function paintObjects(ids: string[], paint: Paint | undefined): void {
 }
 
 /** Binds objects into one group that is selected and moved together. Returns the group ID. */
-export function groupObjects(ids: string[]): string {
+export function groupObjects(ids: string[], name?: string): string {
   const groupId = createObjectId('group')
-  updateMany(ids, 'GroupObjects', (obj) => ({ ...obj, groupId }))
+  const groupName = name?.trim() || undefined
+  updateMany(ids, 'GroupObjects', (obj) => ({ ...obj, groupId, groupName }))
   return groupId
 }
 
 export function ungroupObjects(ids: string[]): void {
-  updateMany(ids, 'UngroupObjects', (obj) => ({ ...obj, groupId: undefined }))
+  updateMany(ids, 'UngroupObjects', (obj) => ({ ...obj, groupId: undefined, groupName: undefined }))
+}
+
+/** Names (or clears the name of) the group these objects belong to. */
+export function renameGroup(ids: string[], name: string): void {
+  const groupName = name.trim() || undefined
+  updateMany(ids, 'RenameGroup', (obj) => (obj.groupId ? { ...obj, groupName } : obj))
 }
 
 /** Copies several objects, offset to the side, as a new group of their own. Returns the new IDs. */

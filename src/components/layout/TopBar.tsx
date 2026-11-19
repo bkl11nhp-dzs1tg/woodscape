@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { captureSnapshot, resetToDemo, restoreSnapshot } from '../../app/worldActions'
+import { captureSnapshot, exportWorldToFile, importWorldFromFile, resetToDemo, restoreSnapshot } from '../../app/worldActions'
 import redoIcon from '../../assets/icons/redo.svg'
 import saveIcon from '../../assets/icons/save.svg'
 import settingsIcon from '../../assets/icons/settings.svg'
 import undoIcon from '../../assets/icons/undo.svg'
 import { cameraCommands, type ViewPreset } from '../../game/camera/cameraCommands'
 import { redo, undo, useHistoryStore } from '../../game/core/history'
-import { WEATHER, WEATHER_ORDER } from '../../game/environment/SkyAndLight'
-import { TIME_ORDER, TIME_PRESETS, type TimeOfDay } from '../../game/environment/timeOfDay'
 import { listSnapshots, removeSnapshot, type Snapshot } from '../../services/saveService'
 import { formatLength } from '../../services/units'
-import { GRID_STEPS, useEditorStore, type Weather } from '../../stores/editorStore'
+import { GRID_STEPS, useEditorStore } from '../../stores/editorStore'
 import { showToast } from '../../stores/toastStore'
 import { useWorldStore } from '../../stores/worldStore'
 import type { LengthUnit } from '../../types/world'
+import { QualityPicker } from '../ui/QualityPicker'
+import { SkyHud } from './SkyHud'
 
 const VIEWS: { id: ViewPreset; label: string }[] = [
   { id: 'perspective', label: 'Phối cảnh' },
@@ -55,10 +55,6 @@ function Popover(props: {
 
 export function TopBar() {
   const worldName = useWorldStore((s) => s.worldName)
-  const timeOfDay = useEditorStore((s) => s.timeOfDay)
-  const setTimeOfDay = useEditorStore((s) => s.setTimeOfDay)
-  const weather = useEditorStore((s) => s.weather)
-  const setWeather = useEditorStore((s) => s.setWeather)
   const canUndo = useHistoryStore((s) => s.undoStack.length > 0)
   const canRedo = useHistoryStore((s) => s.redoStack.length > 0)
   const editing = useEditorStore((s) => s.appMode === 'edit')
@@ -66,7 +62,9 @@ export function TopBar() {
   return (
     <header className="topbar">
       <div className="topbar-group">
-      <div className="logo">WOODSCAPE</div>
+      <button className="logo logo-button" title="Về trang chủ" onClick={() => useEditorStore.getState().setScreen('home')}>
+        WOODSCAPE
+      </button>
       <div className="world-name" title="Tên thế giới">
         {worldName}
       </div>
@@ -88,21 +86,7 @@ export function TopBar() {
       </div>
 
       <div className="topbar-group">
-      <select aria-label="Thời gian trong ngày" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value as TimeOfDay)}>
-        {TIME_ORDER.map((time) => (
-          <option key={time} value={time}>
-            {TIME_PRESETS[time].label}
-          </option>
-        ))}
-      </select>
-
-      <select aria-label="Thời tiết" value={weather} onChange={(e) => setWeather(e.target.value as Weather)}>
-        {WEATHER_ORDER.map((id) => (
-          <option key={id} value={id}>
-            {WEATHER[id].label}
-          </option>
-        ))}
-      </select>
+      <SkyHud />
 
       <select
         className="hide-small"
@@ -187,6 +171,23 @@ function Snapshots() {
       <button className="primary" onClick={() => setList(captureSnapshot())}>
         Lưu mốc hiện tại
       </button>
+      <div className="button-row">
+        <button onClick={exportWorldToFile} title="Lưu cả thế giới và các mẫu đã lưu ra một tệp .json">
+          Xuất ra tệp
+        </button>
+        <button
+          onClick={async () => {
+            const next = await importWorldFromFile()
+            if (next) {
+              setList(next)
+              setOpen(false)
+            }
+          }}
+          title="Mở một tệp .json đã xuất"
+        >
+          Mở từ tệp
+        </button>
+      </div>
       <ul className="snapshots">
         {list.length === 0 && <li className="muted">Chưa có mốc nào.</li>}
         {list.map((snapshot) => (
@@ -287,6 +288,11 @@ function Settings() {
             <output>{Math.round(lookSpeed * 100)}%</output>
             <input type="range" min={30} max={250} step={10} value={Math.round(lookSpeed * 100)} onChange={(e) => setLookSpeed(Number(e.target.value) / 100)} />
           </label>
+        </section>
+
+        <section>
+          <h3>Đồ họa</h3>
+          <QualityPicker compact />
         </section>
 
         <section>

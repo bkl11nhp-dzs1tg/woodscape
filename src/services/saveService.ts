@@ -1,4 +1,5 @@
 import type { WorldObject } from '../types/world'
+import { idbGet, idbSet } from './indexedDb'
 
 /**
  * Local persistence: the current world is auto-saved, and the player can keep
@@ -34,7 +35,7 @@ function storage(): Storage | null {
   }
 }
 
-function isWorldData(value: unknown): value is WorldData {
+export function isWorldData(value: unknown): value is WorldData {
   if (!value || typeof value !== 'object') return false
   const data = value as Partial<WorldData>
   if (data.schemaVersion !== SCHEMA_VERSION || !Array.isArray(data.order) || !data.objects) return false
@@ -85,8 +86,27 @@ function archiveLegacyWorld(): void {
   }
 }
 
+const SAVED_AT_KEY = `${WORLD_KEY}.at`
+const IDB_WORLD = 'world'
+
+/**
+ * Saves to localStorage (fast, read at start-up) and mirrors to IndexedDB (room for a big world). When the
+ * browser refuses the localStorage write because the world is too big, IndexedDB still has it.
+ */
 export function saveWorld(data: WorldData): boolean {
-  return write(WORLD_KEY, data)
+  const savedAt = Date.now()
+  void idbSet(IDB_WORLD, { savedAt, data })
+  const ok = write(WORLD_KEY, data)
+  if (ok) write(SAVED_AT_KEY, savedAt)
+  return ok
+}
+
+/** The newest world IndexedDB holds, if it is newer than what localStorage gave at start-up. */
+export async function loadNewerWorld(): Promise<WorldData | null> {
+  const record = await idbGet<{ savedAt: number; data: unknown }>(IDB_WORLD)
+  if (!record || !isWorldData(record.data)) return null
+  const local = read<number>(SAVED_AT_KEY) ?? 0
+  return record.savedAt > local + 1000 ? record.data : null
 }
 
 export function listSnapshots(): Snapshot[] {
@@ -103,8 +123,9 @@ export function addSnapshot(name: string, data: WorldData): Snapshot[] {
     objectCount: data.order.length,
     data,
   }
-  const list = [snapshot, ...listSnapshots()].slice(0, MAX_SNAPSHOTS)
-  write(SNAPSHOT_KEY, list)
+  let list = [snapshot, ...listSnapshots()].slice(0, MAX_SNAPSHOTS)
+  // A big world can fill the browser's quota: drop the oldest marks until the new one fits.
+  while (!write(SNAPSHOT_KEY, list) && list.length > 1) list = list.slice(0, -1)
   return list
 }
 

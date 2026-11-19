@@ -2533,3 +2533,1800 @@ button.danger {
     border: 0;
   }
 }
+
+/* One panel language. The properties panel, the shelf and the bars share Settings' look:
+   gold small-caps section titles, hairline dividers, label on the left and control on the right. */
+.properties.pp {
+  display: block;
+  width: 320px;
+  padding: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.pp-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 14px 18px 10px;
+  background: #1e1b16;
+}
+
+.pp-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
+.pp-head input.name-input {
+  width: 100%;
+  margin: 0;
+  padding: 4px 8px;
+  margin-left: -8px;
+  width: calc(100% + 16px);
+  font-size: 15px;
+  background: transparent;
+  border-color: transparent;
+}
+
+.pp-head input.name-input:hover,
+.pp-head input.name-input:focus {
+  background: #2c2720;
+  border-color: var(--panel-border);
+}
+
+.pp-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pp-sub .badge {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.idle-text {
+  padding: 0 18px 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pp-actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+  margin: 0;
+  padding: 2px 18px 14px;
+}
+
+.pp-actions button {
+  min-height: 32px;
+  padding: 0 6px;
+  font-size: 13px;
+  border: 1px solid var(--panel-border);
+  white-space: nowrap;
+}
+
+.pp-actions button.primary {
+  border-color: var(--accent);
+}
+
+.pp-actions button.danger {
+  color: #f0a08c;
+}
+
+.properties.pp .opening-controls {
+  margin: 0;
+  padding: 0 18px 14px;
+}
+
+.sec {
+  margin: 0;
+  border-top: 1px solid var(--panel-border);
+}
+
+.sec > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 18px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sec > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sec > summary::before {
+  content: '▸';
+  flex: none;
+  width: 10px;
+  font-size: 10px;
+  color: var(--accent);
+  transition: transform 0.12s;
+}
+
+.sec[open] > summary {
+  padding-bottom: 6px;
+}
+
+.sec[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.sec-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.sec-body {
+  display: grid;
+  gap: 4px;
+  padding: 0 18px 14px;
+}
+
+/* Form row: label left, control right */
+.fr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.fr > span:first-child {
+  min-width: 0;
+}
+
+.fr select {
+  width: 150px;
+  min-height: 32px;
+}
+
+.nf-box {
+  position: relative;
+  display: block;
+  width: 118px;
+  flex: none;
+}
+
+.nf-box input {
+  width: 100%;
+  min-height: 32px;
+  padding-right: 26px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.nf-box em {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.triple {
+  display: flex;
+  gap: 6px;
+}
+
+.triple .nf-box {
+  width: 64px;
+}
+
+.nf-box.has-prefix input {
+  padding: 0 7px 0 20px;
+}
+
+.nf-box i {
+  position: absolute;
+  top: 50%;
+  left: 7px;
+  transform: translateY(-50%);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+/* The same small switch as Settings */
+.fr.switch input {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 38px;
+  height: 22px;
+  margin: 0;
+  border-radius: 11px;
+  background: #4a4238;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fr.switch input::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #f1e9da;
+  transition: transform 0.15s;
+}
+
+.fr.switch input:checked {
+  background: var(--accent);
+}
+
+.fr.switch input:checked::after {
+  transform: translateX(16px);
+  background: #2a2116;
+}
+
+.sec-body .text-in,
+.sec-body select {
+  min-width: 0;
+}
+
+.sec-body .text-in {
+  width: 100%;
+  min-height: 32px;
+}
+
+.sec-body button.wide {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--panel-border);
+}
+
+.sec-body button.wide.primary {
+  border-color: var(--accent);
+}
+
+.sec-body .slider,
+.sec-body .material-row {
+  margin: 0;
+}
+
+.sec-body .slider {
+  padding: 4px 0 6px;
+  font-size: 13px;
+}
+
+.sec-body .faces {
+  margin-top: 4px;
+}
+
+.sec-body .faces > summary {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sec-body .face-row {
+  margin-bottom: 6px;
+}
+
+.properties.pp .keys-hint {
+  display: none;
+}
+
+@media (max-height: 560px) {
+  .properties.pp {
+    width: 262px;
+  }
+
+  .pp-head {
+    padding: 8px 12px 6px;
+  }
+
+  .pp-actions {
+    padding: 0 12px 8px;
+  }
+
+  .sec > summary {
+    padding: 8px 12px;
+  }
+
+  .sec-body {
+    padding: 0 12px 10px;
+    gap: 2px;
+  }
+
+  .fr {
+    min-height: 30px;
+    font-size: 12px;
+  }
+
+  .fr select {
+    width: 120px;
+  }
+
+  .nf-box {
+    width: 96px;
+  }
+
+  .triple .nf-box {
+    width: 54px;
+  }
+}
+
+/* The shelf and the bars use the same small gold titles and the same control height */
+.shelf h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.shelf-extra .fr {
+  min-height: 34px;
+}
+
+.shelf-extra .nf-box {
+  width: 96px;
+}
+
+.thumb-prism.lean-right {
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.shelf-extra {
+  display: grid;
+  gap: 6px;
+  min-width: 190px;
+}
+
+.shelf-extra .nf-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: row;
+}
+
+.shelf-item .del {
+  margin-left: 4px;
+  padding: 0 4px;
+  color: #f0a08c;
+}
+
+/* Sky HUD: the time of day select and the weather readout (icon and temperature) */
+.sky-hud {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weather-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  color: var(--text);
+  background: #2c2720;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  animation: chip-in 0.5s ease-out;
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (max-height: 560px) {
+  .weather-chip {
+    height: 28px;
+    padding: 0 7px;
+  }
+}
+
+
+/* Hints that fade away and come back when needed */
+.reveal {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.reveal.hidden {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}
+
+.properties.idle {
+  width: auto;
+  max-width: 260px;
+}
+
+.idle-text {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.idle-text strong {
+  color: var(--text);
+}
+
+.helpbar {
+  font-size: 12px;
+}
+
+/* Shelf: one row of pieces under group tabs, so it takes little room */
+.shelf {
+  display: block;
+  width: auto;
+  max-width: min(760px, calc(100% - 440px));
+  max-height: none;
+  padding: 8px 12px 10px;
+  overflow: visible;
+}
+
+.shelf-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.shelf-tabs button {
+  flex: none;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-radius: 6px;
+}
+
+.shelf-tabs button.active {
+  color: #2a2116;
+  background: var(--accent);
+}
+
+.shelf .shelf-items {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.shelf .shelf-item {
+  flex: none;
+  position: relative;
+  width: 70px;
+  padding: 6px 2px 5px;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.shelf .shelf-item .thumb,
+.shelf .shelf-item .thumb-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.shelf .shelf-item.pinned::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-strong);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+.stairs-form {
+  display: grid;
+  grid-template-columns: repeat(2, 150px) auto;
+  align-items: center;
+  gap: 0 18px;
+}
+
+.stairs-form .nf-box {
+  width: 84px;
+}
+
+.stairs-form button {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  min-height: 34px;
+  padding: 0 14px;
+}
+
+/* Help bar: separate short pieces with a hairline between them, and a way out while a tool is active */
+.helpbar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.helpbar .seg {
+  padding: 2px 12px;
+}
+
+.helpbar .seg + .seg {
+  border-left: 1px solid var(--panel-border);
+}
+
+.helpbar .seg-cancel {
+  margin-left: 4px;
+  padding: 3px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f0a08c;
+  border: 1px solid rgba(240, 160, 140, 0.45);
+}
+
+.helpbar .seg-cancel:hover {
+  background: rgba(240, 160, 140, 0.14);
+}
+
+/* Never run under the minimap in the corner */
+.properties.pp {
+  max-height: calc(100% - 68px - 276px);
+}
+
+@media (max-height: 560px) {
+  .properties.pp {
+    max-height: calc(100% - 120px);
+  }
+}
+
+/* Draw bar: clear space between the first row of buttons and the divider line */
+.drawbar {
+  gap: 0;
+  padding: 12px 16px 14px;
+}
+
+.drawbar-row + .drawbar-row {
+  margin-top: 12px;
+  padding-top: 14px;
+}
+
+.drawbar-row button {
+  min-height: 34px;
+}
+
+/* House shelf items show their measurements */
+.shelf .shelf-item.house-item {
+  width: 104px;
+}
+
+.shelf .shelf-item.house-item .house-icon {
+  width: 56px;
+  height: 56px;
+}
+
+.shelf .shelf-item small {
+  font-size: 10px;
+  line-height: 1.25;
+  color: var(--muted);
+  text-align: center;
+}
+
+.house-icon {
+  width: 40px;
+  height: 40px;
+}
+
+/* Bars never stack on top of each other: the shelf sits above whichever bar is at the bottom */
+.shelf {
+  bottom: 68px;
+}
+
+.confirm-bar {
+  bottom: 12px;
+}
+
+.confirm-bar span {
+  color: var(--text);
+}
+
+/* Readable text on the chosen shelf item, and on the small measurements */
+.shelf .shelf-item small {
+  color: #d3c8b0;
+}
+
+.shelf .shelf-item.active,
+.shelf .shelf-item.active span,
+.shelf .shelf-item.active small {
+  color: #2a2116;
+}
+
+.shelf .shelf-item.active small {
+  color: #4a3a22;
+}
+
+@media (max-height: 560px) {
+  .shelf {
+    bottom: 54px;
+  }
+}
+
+/* House colour swatches */
+.sw-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.swatch-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.swatch-btn:hover {
+  transform: scale(1.12);
+  border-color: var(--accent);
+}
+
+.swatch-btn.clear {
+  background: #2c2720;
+}
+
+/* Tool bars (paint, cut, draw, mark) share the panel language: a small gold title, same control height, same padding */
+.paintbar,
+.cutbar,
+.drawbar {
+  gap: 12px;
+  padding: 10px 16px;
+  align-items: center;
+}
+
+.paintbar::before,
+.cutbar::before {
+  content: attr(aria-label);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  margin-right: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.drawbar::before {
+  content: attr(aria-label);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.markbar::before {
+  display: none;
+}
+
+.paintbar > button,
+.drawbar button {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--panel-border);
+  font-size: 13px;
+}
+
+.paintbar > button.active,
+.cutbar button.active,
+.drawbar button.active {
+  border-color: var(--accent);
+}
+
+.paintbar label,
+.drawbar label {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.paintbar input[type='range'],
+.drawbar input[type='range'] {
+  accent-color: var(--accent);
+}
+
+@media (max-height: 560px) {
+  .paintbar::before,
+  .cutbar::before {
+    display: none;
+  }
+
+  .drawbar::before {
+    display: none;
+  }
+}
+
+/* Selection box drawn with Shift + drag */
+.box-select {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border: 1px solid var(--accent-strong);
+  background: rgba(217, 183, 120, 0.16);
+  border-radius: 3px;
+}
+
+/* Icon buttons: the same square button everywhere, with the word only in its tooltip */
+.ibtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 9px;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.ibtn:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--accent);
+}
+
+.ibtn.primary {
+  color: #2a2116;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.ibtn.primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.ibtn.active {
+  color: #2a2116;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.ibtn.danger {
+  color: #f0a08c;
+  border-color: rgba(240, 160, 140, 0.4);
+}
+
+.ibtn.danger:hover:not(:disabled) {
+  background: rgba(240, 160, 140, 0.14);
+  border-color: #f0a08c;
+}
+
+.bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Paint bar: swatches, slider and buttons laid out in a row with room between them */
+.shelf.paintbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  max-width: min(760px, calc(100% - 440px));
+}
+
+.paintbar label {
+  display: grid;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.pp-actions .ibtn,
+.confirm-bar .ibtn,
+.helpbar .ibtn {
+  width: auto;
+}
+
+.pp-actions .ibtn.with-label {
+  padding: 0 12px;
+}
+
+.helpbar .ibtn {
+  min-width: 30px;
+  height: 28px;
+  margin-left: 4px;
+}
+
+.drawbar .ibtn {
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+/* Icon + word buttons are compact so a row of three still fits the panel */
+.ibtn.with-label {
+  font-size: 12px;
+  gap: 5px;
+  padding: 0 9px;
+  white-space: nowrap;
+}
+
+.pp-actions .ibtn {
+  min-width: 0;
+  padding: 0 6px;
+}
+
+.pp-actions .ibtn.with-label {
+  padding: 0 6px;
+}
+
+.helpbar .ibtn.with-label {
+  height: 28px;
+  padding: 0 10px;
+}
+
+.confirm-bar .ibtn.with-label {
+  padding: 0 11px;
+}
+
+/* The cut bar sizes itself to its controls and never wraps them over each other */
+.shelf.cutbar {
+  width: max-content;
+  max-width: calc(100% - 440px);
+}
+
+.cutbar .cut-controls {
+  flex-wrap: wrap;
+}
+
+/* Cut bar with nothing picked yet: the three ways to cut are shown, dimmed, ready to choose */
+.cutbar .cut-idle .cut-modes {
+  opacity: 0.6;
+}
+
+.cutbar .cut-idle .cut-modes:hover {
+  opacity: 1;
+}
+
+/* Touch controls in a game style: an ornate stick on the left, round buttons in an arc on the right */
+@media (pointer: coarse) {
+  .stick {
+    left: 100px;
+    bottom: 22px;
+    width: 140px;
+    height: 140px;
+    background: radial-gradient(circle, rgba(34, 29, 46, 0.55) 0 58%, rgba(34, 29, 46, 0.22) 59% 100%);
+    border: 0;
+    box-shadow: 0 0 18px 2px rgba(240, 207, 140, 0.2);
+  }
+
+  .stick-deco {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    fill: none;
+    stroke: rgba(240, 207, 140, 0.7);
+    stroke-width: 1.2;
+  }
+
+  .stick-deco .inner {
+    stroke: rgba(240, 207, 140, 0.32);
+    stroke-width: 0.8;
+  }
+
+  .stick-deco .tick {
+    fill: #f0cf8c;
+    stroke: none;
+  }
+
+  .knob {
+    width: 58px;
+    height: 58px;
+    margin: -29px 0 0 -29px;
+    display: grid;
+    place-items: center;
+    color: #f0cf8c;
+    background: radial-gradient(circle at 50% 32%, #6a5a8a, #231f33 78%);
+    box-shadow: 0 0 0 2px rgba(240, 207, 140, 0.9), 0 0 14px 3px rgba(240, 207, 140, 0.4), inset 0 0 10px rgba(240, 207, 140, 0.3);
+    transition: box-shadow 0.12s;
+  }
+
+  .vcluster {
+    position: absolute;
+    right: 200px;
+    bottom: 20px;
+    z-index: 15;
+    width: 210px;
+    height: 190px;
+  }
+
+  .vbtn {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 1px;
+    padding: 0;
+    color: #f6e7c5;
+    background: radial-gradient(circle at 50% 30%, rgba(106, 90, 138, 0.95), rgba(32, 28, 46, 0.95) 72%);
+    border: 0;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(240, 207, 140, 0.88), 0 0 0 5px rgba(27, 24, 20, 0.5), 0 0 14px 4px rgba(240, 207, 140, 0.28), inset 0 0 12px rgba(240, 207, 140, 0.22);
+    touch-action: none;
+    transition: transform 0.08s, box-shadow 0.12s;
+  }
+
+  .vbtn span {
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.04em;
+  }
+
+  .vbtn:active,
+  .vbtn:hover {
+    background: radial-gradient(circle at 50% 30%, rgba(140, 118, 176, 0.98), rgba(40, 34, 58, 0.98) 72%);
+  }
+
+  .vbtn:active {
+    transform: scale(0.93);
+    box-shadow: 0 0 0 2px #ffe3a0, 0 0 0 5px rgba(27, 24, 20, 0.5), 0 0 22px 8px rgba(255, 214, 128, 0.5), inset 0 0 14px rgba(255, 214, 128, 0.4);
+  }
+
+  .vbtn.big {
+    right: 0;
+    bottom: 0;
+    width: 80px;
+    height: 80px;
+  }
+
+  .vbtn.mid {
+    width: 62px;
+    height: 62px;
+  }
+
+  .vbtn.down {
+    right: 94px;
+    bottom: 4px;
+  }
+
+  .vbtn.fast {
+    right: 76px;
+    bottom: 80px;
+  }
+
+  .vbtn.small {
+    width: 46px;
+    height: 46px;
+  }
+
+  .vbtn.view {
+    right: 6px;
+    bottom: 100px;
+  }
+}
+
+@media (pointer: coarse) and (max-height: 560px) {
+  .stick {
+    left: 66px;
+    bottom: 10px;
+    width: 116px;
+    height: 116px;
+  }
+
+  .vcluster {
+    right: 128px;
+    bottom: 10px;
+    transform: scale(0.82);
+    transform-origin: bottom right;
+  }
+}
+
+/* Touch controls without filled backgrounds: just glowing rings and icons over the picture */
+@media (pointer: coarse) {
+  .stick {
+    background: none;
+    box-shadow: none;
+  }
+
+  .knob {
+    background: none;
+    box-shadow: 0 0 0 2px rgba(240, 207, 140, 0.9), 0 0 14px 3px rgba(240, 207, 140, 0.4);
+  }
+
+  .vbtn {
+    background: none;
+    box-shadow: 0 0 0 2px rgba(240, 207, 140, 0.9), 0 0 12px 3px rgba(240, 207, 140, 0.32);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  }
+
+  .vbtn:active,
+  .vbtn:hover {
+    background: rgba(240, 207, 140, 0.16);
+  }
+
+  .vbtn:active {
+    box-shadow: 0 0 0 2px #ffe3a0, 0 0 22px 7px rgba(255, 214, 128, 0.55);
+  }
+
+  /* The big one is the action button; the four round buttons around it are the same size. */
+  .vcluster {
+    width: 220px;
+    height: 200px;
+  }
+
+  .vbtn.big {
+    right: 0;
+    bottom: 0;
+    width: 84px;
+    height: 84px;
+  }
+
+  .vbtn.mid {
+    width: 58px;
+    height: 58px;
+  }
+
+  .vbtn.down {
+    right: 96px;
+    bottom: 0;
+  }
+
+  .vbtn.fast {
+    right: 84px;
+    bottom: 68px;
+  }
+
+  .vbtn.up {
+    right: 20px;
+    bottom: 100px;
+  }
+
+  .vbtn.view {
+    right: 96px;
+    bottom: 134px;
+  }
+}
+
+/* Home page */
+.logo-button {
+  padding: 0 4px;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent-strong);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.logo-button:hover {
+  color: #fff3d0;
+}
+
+.quality-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.quality-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+}
+
+
+/* On a touch screen the on-screen buttons take the place of the key hints */
+@media (pointer: coarse) {
+  .helpbar {
+    display: none;
+  }
+}
+
+/* The tool column never runs past the bottom of the window: it shrinks, then scrolls */
+.toolbar {
+  max-height: calc(100dvh - 78px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Each tool is as tall as the window allows, up to its normal size, so nothing is cramped and nothing is cut off. */
+.toolbar .tool {
+  --tool-h: clamp(46px, calc((100dvh - 120px) / 11), 70px);
+  min-height: var(--tool-h);
+  align-content: center;
+  padding: 2px 4px;
+}
+
+.toolbar .tool img {
+  width: clamp(20px, calc(var(--tool-h) * 0.36), 26px);
+  height: clamp(20px, calc(var(--tool-h) * 0.36), 26px);
+}
+
+.toolbar .tool span {
+  font-size: clamp(11px, calc(var(--tool-h) * 0.18), 13px);
+}
+
+/* Touch screens: the round buttons sit tight in the bottom-right corner with the map above them */
+@media (pointer: coarse) {
+  .vcluster {
+    right: 10px;
+    bottom: 10px;
+  }
+
+  .minimap {
+    right: 10px;
+    bottom: 214px;
+  }
+
+  .vbtn {
+    background: rgba(20, 18, 32, 0.34);
+  }
+
+  .vbtn:active,
+  .vbtn:hover {
+    background: rgba(240, 207, 140, 0.22);
+  }
+
+  .toasts {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+@media (pointer: coarse) and (max-height: 560px) {
+  .vcluster {
+    right: 6px;
+    bottom: 6px;
+  }
+
+  .minimap {
+    right: 6px;
+    bottom: 176px;
+  }
+}
+
+/* Home page: the valley as the background, the menu on the left, the player top right */
+.home {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  color: var(--text);
+  background-color: #2b2540;
+  background-size: cover;
+  background-position: 62% 50%;
+}
+
+.home-shade {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(20, 16, 30, 0.88) 0%, rgba(20, 16, 30, 0.7) 28%, rgba(20, 16, 30, 0.12) 58%, rgba(20, 16, 30, 0) 100%),
+    linear-gradient(0deg, rgba(20, 16, 30, 0.5) 0%, rgba(20, 16, 30, 0) 22%);
+}
+
+.home-profile {
+  position: fixed;
+  top: 16px;
+  right: 18px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px 5px 5px;
+  background: rgba(27, 24, 20, 0.7);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+}
+
+.home-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  font-weight: 700;
+  color: #2a2116;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.home-profile input {
+  width: 140px;
+  padding: 2px 4px;
+  font-size: 14px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.home-profile input:hover,
+.home-profile input:focus {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--panel-border);
+}
+
+.home-left {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  gap: 18px;
+  width: min(440px, 100%);
+  min-height: 100%;
+  padding: 40px 28px 56px 5vw;
+}
+
+.home-title h1 {
+  margin: 0;
+  font-size: clamp(34px, 5vw, 54px);
+  letter-spacing: 0.14em;
+  color: #fff3d0;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+}
+
+.home-title p {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: #e6dac2;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+}
+
+.home-play {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 20px;
+  text-align: left;
+  color: #2a2116;
+  background: linear-gradient(180deg, #f0cf8c, #d9b778);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.home-play:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f6dba0, #e2c283);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.home-play span {
+  display: grid;
+  gap: 2px;
+}
+
+.home-play strong {
+  font-size: 19px;
+}
+
+.home-play small {
+  font-size: 13px;
+  color: #5a4630;
+}
+
+.home-menu {
+  display: grid;
+  gap: 6px;
+}
+
+.home-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 16px;
+  text-align: left;
+  color: var(--text);
+  background: rgba(27, 24, 20, 0.62);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.home-row:hover:not(:disabled),
+.home-row.open {
+  background: rgba(44, 39, 32, 0.8);
+  border-color: var(--accent);
+}
+
+.home-row:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.home-row svg {
+  flex: none;
+  color: var(--accent-strong);
+}
+
+.home-row-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.home-row small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.home-sub {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(27, 24, 20, 0.78);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+
+.home-sub > button {
+  min-height: 38px;
+  border: 1px solid var(--panel-border);
+}
+
+.home-sub p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.home-mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-mark span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.home-mark button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--panel-border);
+}
+
+.home-credit {
+  position: fixed;
+  right: 18px;
+  bottom: 14px;
+  z-index: 2;
+  font-size: 12px;
+  color: rgba(255, 243, 208, 0.85);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+
+@media (max-width: 760px) {
+  .home {
+    background-position: 78% 50%;
+  }
+
+  .home-shade {
+    background: linear-gradient(0deg, rgba(20, 16, 30, 0.9) 0%, rgba(20, 16, 30, 0.55) 55%, rgba(20, 16, 30, 0.2) 100%);
+  }
+
+  .home-left {
+    width: 100%;
+    padding: 70px 16px 36px;
+    align-content: end;
+  }
+
+  .home-credit {
+    display: none;
+  }
+}
+
+/* A narrow window: the top bar gives up its least important parts instead of running off the screen */
+@media (max-width: 900px) {
+  .world-name,
+  .topbar-group select.hide-small,
+  .topbar-group select[aria-label='Góc nhìn'] {
+    display: none;
+  }
+
+  .topbar-group {
+    gap: 6px;
+    padding: 5px 8px;
+  }
+
+  .sky-hud select {
+    width: 100px;
+  }
+}
+
+@media (max-width: 640px) {
+  .weather-chip span {
+    display: none;
+  }
+
+  .logo {
+    font-size: 12px;
+  }
+}
+
+html,
+body,
+#root {
+  max-width: 100vw;
+}
+
+.helpbar {
+  max-width: calc(100vw - 16px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* Home page, second pass: a living backdrop (four times of day, draggable), a two-line player card, badges */
+.home {
+  background: #1b1624;
+}
+
+.home-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.home-pan {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: max(100vw, 246.2vh);
+  margin-left: calc(max(100vw, 246.2vh) / -2);
+  will-change: transform;
+}
+
+.home-pan img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 2.4s ease;
+  user-select: none;
+  pointer-events: none;
+}
+
+.home-pan img.on {
+  opacity: 1;
+}
+
+.home-shade {
+  z-index: 1;
+}
+
+.home-times {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  transform: translateX(-50%);
+  background: rgba(27, 24, 20, 0.62);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+}
+
+.home-times button {
+  padding: 5px 13px;
+  font-size: 12px;
+  color: var(--muted);
+  border-radius: 999px;
+}
+
+.home-times button.on {
+  color: #2a2116;
+  background: var(--accent);
+  font-weight: 600;
+}
+
+.home-ripple {
+  position: fixed;
+  z-index: 4;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.home-ripple::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffe3a0;
+  border-radius: 50%;
+  box-shadow: 0 0 18px 4px rgba(255, 214, 128, 0.55);
+  animation: ripple-ring 0.9s ease-out forwards;
+}
+
+.home-ripple i {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  background: #fff3c4;
+  border-radius: 50%;
+  box-shadow: 0 0 8px 2px rgba(255, 214, 128, 0.8);
+  animation: ripple-spark 0.8s ease-out forwards;
+}
+
+.home-ripple i:nth-child(1) { --a: 0deg; }
+.home-ripple i:nth-child(2) { --a: 60deg; }
+.home-ripple i:nth-child(3) { --a: 120deg; }
+.home-ripple i:nth-child(4) { --a: 180deg; }
+.home-ripple i:nth-child(5) { --a: 240deg; }
+.home-ripple i:nth-child(6) { --a: 300deg; }
+
+@keyframes ripple-ring {
+  to {
+    transform: scale(8);
+    opacity: 0;
+  }
+}
+
+@keyframes ripple-spark {
+  to {
+    transform: rotate(var(--a)) translateX(58px) scale(0.3);
+    opacity: 0;
+  }
+}
+
+.home-profile {
+  position: fixed;
+  top: 16px;
+  right: 18px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 6px;
+  background: rgba(27, 24, 20, 0.7);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+}
+
+.home-profile-text {
+  display: grid;
+  gap: 1px;
+  min-width: 120px;
+}
+
+.home-profile-text strong {
+  font-size: 14px;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.home-profile-text small {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
+.home-profile-text input {
+  width: 150px;
+  padding: 1px 6px;
+  font-size: 14px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+}
+
+.home-pencil {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--accent-strong);
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+}
+
+.home-badge {
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-strong);
+  background: rgba(240, 207, 140, 0.14);
+  border: 1px solid rgba(240, 207, 140, 0.35);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.home-badge.soon {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--panel-border);
+}
+
+.home-credit {
+  display: none;
+}
+
+/* Home page on a phone held sideways: everything fits without overlapping (menu in two columns, chips bottom right) */
+@media (max-height: 560px) {
+  .home-left {
+    width: min(560px, 62vw);
+    gap: 8px;
+    padding: 12px 12px 56px max(14px, 3vw);
+    align-content: start;
+  }
+
+  .home-title h1 {
+    font-size: 28px;
+  }
+
+  .home-title p {
+    margin-top: 2px;
+    font-size: 12px;
+  }
+
+  .home-play {
+    padding: 8px 14px;
+  }
+
+  .home-play strong {
+    font-size: 16px;
+  }
+
+  .home-menu {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .home-menu .home-sub {
+    grid-column: 1 / -1;
+  }
+
+  .home-row {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .home-badge {
+    padding: 1px 7px;
+    font-size: 10px;
+  }
+
+  .home-profile {
+    top: 8px;
+    right: 8px;
+  }
+
+  .home-profile-text {
+    min-width: 0;
+  }
+
+  .home-profile-text small {
+    display: none;
+  }
+
+  .home-times {
+    left: auto;
+    right: 10px;
+    bottom: 10px;
+    transform: none;
+  }
+
+  .home-times button {
+    padding: 4px 9px;
+    font-size: 11px;
+  }
+
+  .home-shade {
+    background: linear-gradient(90deg, rgba(20, 16, 30, 0.88) 0%, rgba(20, 16, 30, 0.7) 45%, rgba(20, 16, 30, 0.1) 75%, rgba(20, 16, 30, 0) 100%);
+  }
+}
+
+/* A narrow portrait phone: the chips sit above the menu's bottom edge instead of over it */
+@media (max-width: 760px) and (min-height: 561px) {
+  .home-left {
+    padding-bottom: 72px;
+  }
+}
+
+.home-times button {
+  white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+  .home-times button {
+    padding: 5px 8px;
+  }
+}
+
+.home-times button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+@media (max-width: 760px), (max-height: 560px) {
+  .home-times button span {
+    display: none;
+  }
+
+  .home-times button {
+    padding: 7px 11px;
+  }
+}

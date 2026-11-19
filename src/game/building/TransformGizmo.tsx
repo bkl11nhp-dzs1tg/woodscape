@@ -7,7 +7,8 @@ import type { Vec3 } from '../../types/world'
 import { transformObjects, type TransformUpdate } from './commands'
 import { objectMeshes, ROTATION_SNAP, setGizmoDragging, usingTouch } from './interaction'
 import { cancelPendingMove } from './pending'
-import { snapToNeighbours } from './snapping'
+import { findGuides, unionAabb } from './guides'
+import { snapToNeighbours, worldAabb, type Aabb } from './snapping'
 
 const COARSE = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
 
@@ -25,7 +26,7 @@ export function TransformGizmo() {
   const objects = useWorldStore((s) => s.objects)
   const pivot = useMemo(() => new THREE.Object3D(), [])
   const [ready, setReady] = useState(false)
-  const drag = useRef<{ pivot: THREE.Matrix4; starts: Map<string, THREE.Matrix4> } | null>(null)
+  const drag = useRef<{ pivot: THREE.Matrix4; starts: Map<string, THREE.Matrix4>; others: Aabb[] } | null>(null)
 
   const ids = useMemo(() => selectedIds.filter((id) => objects[id] && !objects[id].locked), [selectedIds, objects])
   const editing = useEditorStore((s) => s.appMode === 'edit')
@@ -67,7 +68,13 @@ export function TransformGizmo() {
       node.updateMatrix()
       starts.set(id, node.matrix.clone())
     }
-    drag.current = { pivot: pivot.matrix.clone(), starts }
+    // Everything that is not being moved, as boxes to line up with.
+    const others: Aabb[] = []
+    for (const obj of Object.values(useWorldStore.getState().objects)) {
+      if (starts.has(obj.id) || obj.type === 'mark_line' || obj.type === 'road') continue
+      others.push(worldAabb(obj.geometry, obj.transform.position, obj.transform.rotation))
+    }
+    drag.current = { pivot: pivot.matrix.clone(), starts, others }
   }
 
   const follow = () => {
@@ -80,10 +87,22 @@ export function TransformGizmo() {
       const node = objectMeshes.get(id)
       if (node) delta.clone().multiply(matrix).decompose(node.position, node.quaternion, scale)
     })
+    if (tool !== 'rotate') {
+      const boxes: Aabb[] = []
+      state.starts.forEach((_, id) => {
+        const node = objectMeshes.get(id)
+        const obj = objects[id]
+        if (node && obj) boxes.push(worldAabb(obj.geometry, [node.position.x, node.position.y, node.position.z], [node.rotation.x, node.rotation.y, node.rotation.z]))
+      })
+      const guides = boxes.length > 0 ? findGuides(unionAabb(boxes), state.others) : []
+      const before = useEditorStore.getState().guides
+      if (guides.length !== before.length || guides.some((g, i) => g.axis !== before[i].axis || g.value !== before[i].value)) useEditorStore.setState({ guides })
+    }
   }
 
   const commit = () => {
     setGizmoDragging(false)
+    if (useEditorStore.getState().guides.length > 0) useEditorStore.setState({ guides: [] })
     const state = drag.current
     drag.current = null
     if (!state) return

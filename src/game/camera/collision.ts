@@ -23,6 +23,10 @@ export function resolveCameraCollision(
   // Two passes so that being pushed out of one object into another settles.
   for (let pass = 0; pass < 2; pass++) {
     for (const obj of objects) {
+      // Decorative frames (an arch round a doorway) are drawn flat on the wall and must never block it.
+      if (obj.type === 'detail' && obj.geometry.shape === 'extrude') continue
+      // The side boards of a staircase are low at the bottom: a person steps in from the side.
+      if (obj.type === 'stair_side') continue
       if (obj.geometry.shape === 'opening' || obj.geometry.shape === 'card' || obj.geometry.shape === 'figure' || obj.type === 'mark_line') continue
       if (isOpening(obj.geometry.shape) && obj.open) continue
       const size = getDimensions(obj.geometry)

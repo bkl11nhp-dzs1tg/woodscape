@@ -12,6 +12,7 @@ import { getDimensions } from '../geometry/GeometryFactory'
 import { cameraCommands, type ViewPreset } from './cameraCommands'
 import { cameraState, virtualInput } from './cameraState'
 import { resolveCameraCollision } from './collision'
+import { EYE_HEIGHT, groundHeightAt, stepVertical } from './walking'
 
 /**
  * Camera with two modes (toggle with C):
@@ -67,13 +68,31 @@ export function CameraController() {
   /** Eased head turning (what the camera shows) and the walking velocity. */
   const shown = useRef({ yaw: 0, pitch: 0 })
   const velocity = useRef(new THREE.Vector3())
+  /** Falling / jumping speed while walking like a person. */
+  const fall = useRef(0)
   /** A glide to a new place: where the camera and the orbit point started and where they end. */
-  const glide = useRef<{ t: number; from: THREE.Vector3; to: THREE.Vector3; fromTarget: THREE.Vector3; toTarget: THREE.Vector3 } | null>(null)
+  const glide = useRef<{
+    t: number
+    seconds: number
+    arc: number
+    from: THREE.Vector3
+    to: THREE.Vector3
+    fromTarget: THREE.Vector3
+    toTarget: THREE.Vector3
+  } | null>(null)
 
   // Face the starting view before either mode takes over.
   useEffect(() => {
     camera.lookAt(...START_TARGET)
-    if (import.meta.env.DEV) (window as unknown as { __woodscapeCamera?: THREE.Camera }).__woodscapeCamera = camera
+    if (import.meta.env.DEV) {
+      const dev = window as unknown as { __woodscapeCamera?: THREE.Camera; __woodscapeLook?: (yaw: number, pitch: number) => void }
+      dev.__woodscapeCamera = camera
+      // Dev only: turn the head to a chosen direction (for taking pictures).
+      dev.__woodscapeLook = (yaw, pitch) => {
+        look.current.yaw = shown.current.yaw = yaw
+        look.current.pitch = shown.current.pitch = pitch
+      }
+    }
   }, [camera])
 
   // Keyboard and UI camera commands.
@@ -92,7 +111,7 @@ export function CameraController() {
     }
 
     /** Eases the camera (and the orbit point) to a new place over a fraction of a second. */
-    const glideTo = (position: THREE.Vector3, target: THREE.Vector3) => {
+    const glideTo = (position: THREE.Vector3, target: THREE.Vector3, trip?: { seconds: number; arc: number }) => {
       const ctl = controls.current
       if (!ctl) return
       if (!useEditorStore.getState().smoothMotion) {
@@ -101,7 +120,15 @@ export function CameraController() {
         ctl.update()
         return
       }
-      glide.current = { t: 0, from: camera.position.clone(), to: position, fromTarget: ctl.target.clone(), toTarget: target }
+      glide.current = {
+        t: 0,
+        seconds: trip?.seconds ?? 0.8,
+        arc: trip?.arc ?? 0,
+        from: camera.position.clone(),
+        to: position,
+        fromTarget: ctl.target.clone(),
+        toTarget: target,
+      }
     }
 
     const setView = (preset: ViewPreset) => {
@@ -118,7 +145,11 @@ export function CameraController() {
       const dx = x - camera.position.x
       const dz = z - camera.position.z
       const y = Math.max(getTerrainHeight(x, z), WATER_LEVEL) + Math.max(height, 1.7)
-      if (ctl) glideTo(new THREE.Vector3(x, y, z), new THREE.Vector3(ctl.target.x + dx, ctl.target.y + (y - camera.position.y), ctl.target.z + dz))
+      // A trip across the map takes longer and rises over the land on the way, like a drone shot.
+      const distance = Math.hypot(dx, dz)
+      const seconds = THREE.MathUtils.clamp(0.9 + distance / 120, 0.9, 3)
+      const arc = Math.min(distance * 0.12, 40)
+      if (ctl) glideTo(new THREE.Vector3(x, y, z), new THREE.Vector3(ctl.target.x + dx, ctl.target.y + (y - camera.position.y), ctl.target.z + dz), { seconds, arc })
       else camera.position.set(x, y, z)
     }
 
@@ -143,7 +174,7 @@ export function CameraController() {
     const unsubscribe = cameraCommands.subscribe((command) => {
       if (command.type === 'focus') focusSelection()
       else if (command.type === 'goto') goTo(command.x, command.z)
-      else setView(command.preset)
+      else if (command.type === 'view') setView(command.preset)
     })
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
@@ -242,9 +273,10 @@ export function CameraController() {
 
     if (glide.current) {
       const g = glide.current
-      g.t = Math.min(1, g.t + Math.min(delta, 0.1) / 0.45)
-      const eased = g.t * g.t * (3 - 2 * g.t)
+      g.t = Math.min(1, g.t + Math.min(delta, 0.1) / g.seconds)
+      const eased = g.t * g.t * g.t * (g.t * (g.t * 6 - 15) + 10)
       camera.position.lerpVectors(g.from, g.to, eased)
+      if (g.arc > 0) camera.position.y += Math.sin(Math.PI * eased) * g.arc
       ctl.target.lerpVectors(g.fromTarget, g.toTarget, eased)
       if (!walking) ctl.update()
       if (g.t >= 1) glide.current = null
@@ -253,6 +285,9 @@ export function CameraController() {
     // Movement: level with the ground along the view heading, plus straight up/down.
     before.current.copy(camera.position)
     const keys = pressed.current
+    // With "no walking through things" on you are a person: gravity, steps and jumping instead of free flight.
+    const person = walking && editor.collisionEnabled
+    const wantsJump = person && (keys.has('Space') || keys.has('KeyE') || virtualInput.vertical > 0)
     camera.getWorldDirection(view.current)
     forward.current.copy(view.current)
     forward.current.y = 0
@@ -265,15 +300,15 @@ export function CameraController() {
       const direction = KEY_DIRECTIONS[code]
       if (!direction) continue
       step.current.addScaledVector(right.current, direction[0])
-      step.current.y += direction[1]
+      if (!person) step.current.y += direction[1]
       step.current.addScaledVector(forward.current, direction[2])
     }
     step.current.addScaledVector(right.current, virtualInput.moveX)
     step.current.addScaledVector(forward.current, virtualInput.moveForward)
-    step.current.y += virtualInput.vertical
+    if (!person) step.current.y += virtualInput.vertical
     // Wanted velocity (m/s); the real one follows it with a short ease so starting and stopping never jerk.
     const dt = Math.min(delta, 0.1)
-    const fast = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 3 : 1
+    const fast = keys.has('ShiftLeft') || keys.has('ShiftRight') || virtualInput.fast ? 3 : 1
     // Walking among buildings wants a gentler pace than flying over the valley.
     const speed = editor.cameraSpeed * (walking ? 0.45 : 1) * fast
     const wanted = step.current
@@ -291,12 +326,31 @@ export function CameraController() {
     if (wheelSteps.current !== 0) {
       glide.current = null
       camera.position.addScaledVector(view.current, wheelSteps.current * 0.6)
+      if (person) camera.position.y = before.current.y
       wheelSteps.current = 0
     }
 
     if (walking && editor.collisionEnabled) {
       const objects = useWorldStore.getState().objects
-      resolveCameraCollision(camera.position, EYE_RADIUS, Object.values(objects), getWallHoles(objects))
+      const list = Object.values(objects)
+      const holes = getWallHoles(objects)
+      resolveCameraCollision(camera.position, EYE_RADIUS, list, holes)
+      // Low walls and fences stop the legs too, not just the eye.
+      const waist = camera.position.clone()
+      waist.y -= 0.85
+      const before = waist.clone()
+      resolveCameraCollision(waist, EYE_RADIUS, list, holes)
+      camera.position.x += waist.x - before.x
+      camera.position.z += waist.z - before.z
+      // Stand on whatever is underfoot: ground, floor, a stair tread.
+      const support = groundHeightAt(camera.position.x, camera.position.z, camera.position.y, list)
+      const ground = Math.max(getTerrainHeight(camera.position.x, camera.position.z), WATER_LEVEL)
+      const floorEye = Math.max(ground, support ?? -Infinity) + EYE_HEIGHT
+      const result = stepVertical(camera.position.y, fall.current, floorEye, dt, wantsJump)
+      camera.position.y = result.y
+      fall.current = result.vy
+    } else {
+      fall.current = 0
     }
 
     // Never sink into the ground or the water.
@@ -324,12 +378,12 @@ export function CameraController() {
       ref={controls}
       makeDefault
       enableDamping
-      dampingFactor={0.12}
+      dampingFactor={0.2}
       rotateSpeed={lookSpeed}
       target={START_TARGET}
       minDistance={0.5}
       maxDistance={450}
-      maxPolarAngle={Math.PI * 0.5}
+      maxPolarAngle={Math.PI * 0.97}
     />
   )
 }

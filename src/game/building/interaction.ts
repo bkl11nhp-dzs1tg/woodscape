@@ -1,10 +1,36 @@
-import type * as THREE from 'three'
+import * as THREE from 'three'
 import { useEditorStore } from '../../stores/editorStore'
 
 /** Scene-side bookkeeping shared by selection, the transform gizmo and placement. */
 
 /** Live meshes by object ID. The store stays the source of truth; this is only a lookup. */
 export const objectMeshes = new Map<string, THREE.Object3D>()
+
+/**
+ * The world object a ray hit belongs to. Repeated pieces are drawn as one instanced mesh that
+ * lists its objects in `userData.instanceIds`; everything else is found by node name.
+ */
+export function objectIdFromHit(hit: THREE.Intersection | undefined, objects: Record<string, unknown>): string | null {
+  if (!hit) return null
+  const instanceIds = hit.object.userData.instanceIds as string[] | undefined
+  if (instanceIds && hit.instanceId !== undefined) return instanceIds[hit.instanceId] ?? null
+  for (let node: THREE.Object3D | null = hit.object; node; node = node.parent) {
+    if (node.name in objects) return node.name
+  }
+  return null
+}
+
+/** World matrix of what a ray hit, including the instance's own placement. */
+export function hitMatrix(hit: THREE.Intersection): THREE.Matrix4 {
+  const matrix = hit.object.matrixWorld.clone()
+  const mesh = hit.object as THREE.InstancedMesh
+  if (mesh.isInstancedMesh && hit.instanceId !== undefined) {
+    const local = new THREE.Matrix4()
+    mesh.getMatrixAt(hit.instanceId, local)
+    matrix.multiply(local)
+  }
+  return matrix
+}
 
 let gizmoUsedAt = -Infinity
 

@@ -48,7 +48,19 @@ function wallInfo(obj: WorldObject): WallInfo | null {
 }
 
 /** `skip` lists wall IDs that already have an opening and are left alone. */
-export function planOpenings(walls: readonly WorldObject[], skip: ReadonlySet<string> = new Set()): OpeningPlan[] {
+export interface DoorOptions {
+  width: number
+  height: number
+  /** Where along the wall, as a fraction of its length from the middle (0 = centred). */
+  at: number
+}
+
+export function planOpenings(
+  walls: readonly WorldObject[],
+  skip: ReadonlySet<string> = new Set(),
+  withDoor = true,
+  door: DoorOptions = { width: DOOR.width, height: DOOR.height, at: 0.25 },
+): OpeningPlan[] {
   const infos = walls.map(wallInfo).filter((info): info is WallInfo => info !== null && !skip.has(info.obj.id))
   if (infos.length === 0) return []
   const all = walls.filter((obj) => isBoxLike(obj.geometry.shape))
@@ -70,14 +82,14 @@ export function planOpenings(walls: readonly WorldObject[], skip: ReadonlySet<st
     const groupId = info.obj.groupId
 
     let doorU: number | null = null
-    if (info === doorWall) {
-      doorU = info.length / 4
-      plans.push({ kind: 'door', position: at(doorU, base + DOOR.height / 2), yaw, width: DOOR.width, height: DOOR.height, groupId })
+    if (withDoor && info === doorWall) {
+      doorU = info.length * door.at
+      plans.push({ kind: 'door', position: at(doorU, base + door.height / 2), yaw, width: door.width, height: door.height, groupId })
     }
-    const count = info.length >= 1.8 ? Math.max(1, Math.floor((info.length - 0.6) / 2.2)) : 0
+    const count = info.length >= 1.8 ? Math.max(1, Math.floor((info.length - 0.8) / 3.2)) : 0
     for (let k = 0; k < count; k++) {
       const u = -info.length / 2 + ((k + 0.5) * info.length) / count
-      if (doorU !== null && Math.abs(u - doorU) < DOOR.width / 2 + WINDOW.width / 2 + 0.3) continue
+      if (doorU !== null && Math.abs(u - doorU) < door.width / 2 + WINDOW.width / 2 + 0.3) continue
       plans.push({ kind: 'window', position: at(u, base + WINDOW.sill + WINDOW.height / 2), yaw, width: WINDOW.width, height: WINDOW.height, groupId })
     }
   }

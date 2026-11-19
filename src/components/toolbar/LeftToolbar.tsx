@@ -1,3 +1,4 @@
+import angleIcon from '../../assets/icons/angle.svg'
 import cutIcon from '../../assets/icons/cut.svg'
 import drawIcon from '../../assets/icons/draw.svg'
 import paintIcon from '../../assets/icons/decorate.svg'
@@ -19,6 +20,7 @@ const TOOLS: { id: Exclude<ToolId, 'place'>; label: string; key: string; icon: s
   { id: 'cut', label: 'Cắt', key: 'K', icon: cutIcon, hint: 'Cắt một khối hoặc tấm làm hai' },
   { id: 'paint', label: 'Sơn', key: 'B', icon: paintIcon, hint: 'Phủ lớp màu lên vật thể' },
   { id: 'mark', label: 'Vạch dấu', key: 'L', icon: markIcon, hint: 'Kẻ đường định vị trên nền, có số đo' },
+  { id: 'measure', label: 'Đo', key: 'N', icon: angleIcon, hint: 'Bấm hai điểm bất kỳ để đo khoảng cách, thêm điểm thứ ba để đo góc' },
 ]
 
 /** Only tools that work are shown. */

@@ -1,6 +1,6 @@
 import { Html } from '@react-three/drei'
-import type { ThreeEvent } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { getMaterialDef } from '../../data/materials'
 import { formatLength } from '../../services/units'
@@ -16,6 +16,7 @@ import {
   isOpening,
   type WallHoles,
 } from '../geometry/GeometryFactory'
+import { QUALITY } from '../core/quality'
 import { getObjectMaterials } from '../materials/MaterialFactory'
 import { CardPicture } from './CardObject'
 import { FigureModel } from './FigureObject'
@@ -24,6 +25,7 @@ import { TreeModel } from './TreeObject'
 import { toggleOpen } from './commands'
 import { fromPlane, outlineOf, shapePoints, toPlane, type CutAxis, type Point } from './cutting'
 import { clickSelect } from './selection'
+import { easeOutBack, growth } from './growth'
 import { gizmoRecentlyUsed, objectMeshes } from './interaction'
 import { OpeningParts } from './OpeningParts'
 import { worldAabb } from './snapping'
@@ -97,7 +99,7 @@ function selectOnClick(obj: WorldObject) {
       }
       return
     }
-    if (editor.activeTool === 'place' || editor.activeTool === 'mark' || editor.activeTool === 'draw') return
+    if (editor.activeTool === 'place' || editor.activeTool === 'mark' || editor.activeTool === 'draw' || editor.activeTool === 'fill' || editor.activeTool === 'measure') return
     e.stopPropagation()
     // Painting is done by the brush (PaintBrush), which also handles sweeping.
     if (editor.activeTool === 'paint') return
@@ -214,11 +216,12 @@ function registerNode(id: string) {
   }
 }
 
-function SolidObject({ obj, selected, labels, holes }: { obj: WorldObject; selected: boolean; labels: boolean; holes?: WallHoles }) {
+const SolidObject = memo(function SolidObject({ obj, selected, labels, holes }: { obj: WorldObject; selected: boolean; labels: boolean; holes?: WallHoles }) {
   const cutting = useEditorStore((s) => s.activeTool === 'cut')
   const halving = useEditorStore((s) => s.cutMode === 'half')
   const alignGrain = getMaterialDef(obj.materialId).category === 'wood'
   const holesKey = holes ? JSON.stringify(holes) : ''
+  const inkOn = useEditorStore((s) => QUALITY[s.qualityLevel].ink)
 
   // Walls with openings get their own geometry; everything else shares cached geometry.
   const holed = useMemo(() => {
@@ -253,7 +256,7 @@ function SolidObject({ obj, selected, labels, holes }: { obj: WorldObject; selec
       receiveShadow
       onClick={selectOnClick(obj)}
     >
-      {hasInk(obj) && (
+      {inkOn && hasInk(obj) && (
         <lineSegments geometry={inkEdges(geometry)} raycast={noRaycast}>
           <lineBasicMaterial color="#3d2f22" transparent opacity={0.65} />
         </lineSegments>
@@ -262,6 +265,98 @@ function SolidObject({ obj, selected, labels, holes }: { obj: WorldObject; selec
       {selected && cutting && halving && isBoxLike(obj.geometry.shape) && <CutPreview obj={obj} />}
       {selected && cutting && !halving && <CutSketch obj={obj} />}
     </mesh>
+  )
+})
+
+/** Pieces that repeat exactly (floor boards, tiles, bricks, steps) are drawn as one instanced mesh. */
+const MIN_INSTANCES = 8
+const INSTANCEABLE = new Set(['box', 'panel', 'prism', 'cylinder', 'cone'])
+
+function instanceKey(obj: WorldObject): string {
+  return [JSON.stringify(obj.geometry), obj.materialId, JSON.stringify(obj.faceMaterials ?? null), JSON.stringify(obj.paint ?? null), hasInk(obj) ? 1 : 0].join('|')
+}
+
+/** Splits the objects into loose ones and runs of identical pieces worth instancing. Selected and walled-in ones stay loose. */
+function partitionObjects(order: string[], objects: Record<string, WorldObject>, selected: Set<string>, holes: Record<string, WallHoles>) {
+  const runs = new Map<string, WorldObject[]>()
+  for (const id of order) {
+    const obj = objects[id]
+    if (!obj || selected.has(id) || growth.has(id) || holes[id] || obj.opacity !== undefined || !INSTANCEABLE.has(obj.geometry.shape)) continue
+    const key = instanceKey(obj)
+    const run = runs.get(key)
+    if (run) run.push(obj)
+    else runs.set(key, [obj])
+  }
+  const instanced = new Set<string>()
+  const groups: WorldObject[][] = []
+  for (const run of runs.values()) {
+    if (run.length < MIN_INSTANCES) continue
+    groups.push(run)
+    run.forEach((obj) => instanced.add(obj.id))
+  }
+  return { groups, instanced }
+}
+
+const placeMatrix = new THREE.Matrix4()
+const placeQuaternion = new THREE.Quaternion()
+const placeEuler = new THREE.Euler()
+const placeOne = new THREE.Vector3(1, 1, 1)
+const placeAt = new THREE.Vector3()
+
+function InstancedRun({ items }: { items: WorldObject[] }) {
+  const sample = items[0]
+  const alignGrain = getMaterialDef(sample.materialId).category === 'wood'
+  const geometry = getGeometry(sample.geometry, alignGrain)
+  const material = useMemo(() => getObjectMaterials(sample), [sample])
+  const inkOn = useEditorStore((s) => QUALITY[s.qualityLevel].ink)
+  const ink = inkOn && hasInk(sample)
+  const mesh = useRef<THREE.InstancedMesh>(null)
+
+  const edges = useMemo(() => {
+    if (!ink) return null
+    const base = inkEdges(geometry).getAttribute('position')
+    const out = new Float32Array(base.count * 3 * items.length)
+    const point = new THREE.Vector3()
+    items.forEach((obj, i) => {
+      placeMatrix.compose(placeAt.set(...obj.transform.position), placeQuaternion.setFromEuler(placeEuler.set(...obj.transform.rotation)), placeOne)
+      for (let v = 0; v < base.count; v++) {
+        point.fromBufferAttribute(base, v).applyMatrix4(placeMatrix)
+        out.set([point.x, point.y, point.z], (i * base.count + v) * 3)
+      }
+    })
+    const lines = new THREE.BufferGeometry()
+    lines.setAttribute('position', new THREE.BufferAttribute(out, 3))
+    return lines
+  }, [ink, geometry, items])
+  useEffect(() => () => edges?.dispose(), [edges])
+
+  useLayoutEffect(() => {
+    const target = mesh.current
+    if (!target) return
+    items.forEach((obj, i) => {
+      placeMatrix.compose(placeAt.set(...obj.transform.position), placeQuaternion.setFromEuler(placeEuler.set(...obj.transform.rotation)), placeOne)
+      target.setMatrixAt(i, placeMatrix)
+    })
+    target.userData.instanceIds = items.map((obj) => obj.id)
+    target.instanceMatrix.needsUpdate = true
+    target.computeBoundingSphere()
+  }, [items])
+
+  const onClick = (e: ThreeEvent<MouseEvent>) => {
+    const id = e.instanceId === undefined ? undefined : items[e.instanceId]?.id
+    const obj = id ? useWorldStore.getState().objects[id] : undefined
+    if (obj) selectOnClick(obj)(e)
+  }
+
+  return (
+    <>
+      <instancedMesh key={items.length} ref={mesh} args={[geometry, material, items.length]} castShadow receiveShadow onClick={onClick} />
+      {edges && (
+        <lineSegments geometry={edges} raycast={noRaycast}>
+          <lineBasicMaterial color="#3d2f22" transparent opacity={0.65} />
+        </lineSegments>
+      )}
+    </>
   )
 }
 
@@ -369,17 +464,59 @@ function SelectionBounds({ ids }: { ids: string[] }) {
   )
 }
 
+/** Drives the grow-in of pieces that are being built; one frame callback for all of them. */
+export function GrowthDriver() {
+  useFrame(() => {
+    if (growth.size === 0) return
+    const now = performance.now()
+    const objects = useWorldStore.getState().objects
+    for (const [id, entry] of growth) {
+      const obj = objects[id]
+      if (!obj) {
+        growth.delete(id)
+        continue
+      }
+      const node = objectMeshes.get(id)
+      if (!node) continue
+      const t = (now - entry.start) / entry.duration
+      const [x, y, z] = obj.transform.position
+      if (t >= 1) {
+        node.scale.set(1, 1, 1)
+        node.position.set(x, y, z)
+        growth.delete(id)
+      } else if (t < 0) {
+        node.scale.setScalar(0.0001)
+      } else if (entry.mode === 'pop') {
+        node.scale.setScalar(Math.max(0.0001, easeOutBack(t)))
+      } else {
+        const s = Math.max(0.0001, 1 - Math.pow(1 - t, 3))
+        node.scale.set(1, s, 1)
+        node.position.set(x, y - (getDimensions(obj.geometry).height / 2) * (1 - s), z)
+      }
+    }
+  })
+  return null
+}
+
 export function WorldObjects() {
   const order = useWorldStore((s) => s.order)
   const objects = useWorldStore((s) => s.objects)
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const holes = getWallHoles(objects)
   const single = selectedIds.length === 1
+  const { groups, instanced } = useMemo(
+    () => partitionObjects(order, objects, new Set(selectedIds), holes),
+    [order, objects, selectedIds, holes],
+  )
 
   return (
     <group name="world-objects">
       {selectedIds.length > 1 && <SelectionBounds ids={selectedIds} />}
+      {groups.map((items) => (
+        <InstancedRun key={instanceKey(items[0])} items={items} />
+      ))}
       {order.map((id) => {
+        if (instanced.has(id)) return null
         const obj = objects[id]
         const selected = selectedIds.includes(id)
         if (obj.geometry.shape === 'model') return <ImportedModel key={id} obj={obj} selected={selected} labels={single} />

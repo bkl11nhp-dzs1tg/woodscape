@@ -2,72 +2,97 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import { useEditorStore, type Weather } from '../../stores/editorStore'
+import { useWorldStore } from '../../stores/worldStore'
 import { createRng } from '../core/random'
-import { sunDirection, TIME_PRESETS } from './timeOfDay'
+import { useEditorStore } from '../../stores/editorStore'
+import { QUALITY } from '../core/quality'
+import { atmosphere, updateAtmosphere } from './atmosphere'
 
 const SHADOW_RANGE = 70
+/** The shadow map is only redrawn when something it shows has changed (and once a second as a safety net). */
+const SHADOW_IDLE_REFRESH_MS = 1000
+const SHADOW_SETTLE_MS = 1600
+/** The shadow window moves in whole steps of this many meters, so shadows do not shimmer as you walk. */
+const SHADOW_STEP = 2
 
-interface WeatherLook {
-  label: string
-  /** Multipliers on the time-of-day light. */
-  sun: number
-  ambient: number
-  /** How far the sky and clouds shift toward `tint`. */
-  overcast: number
-  tint: string
-  cloudCount: number
-  fogNear: number
-  fogFar: number
-  rain: boolean
+/** Advances the sky (time of day and weather glide) once per frame, before anything reads it. */
+export function AtmosphereDriver() {
+  useFrame((_, delta) => updateAtmosphere(delta))
+  return null
 }
 
-export const WEATHER_ORDER: readonly Weather[] = ['clear', 'cloudy', 'rain', 'fog']
-
-export const WEATHER: Record<Weather, WeatherLook> = {
-  clear: { label: 'Trời quang', sun: 1, ambient: 1, overcast: 0, tint: '#ffffff', cloudCount: 16, fogNear: 90, fogFar: 1500, rain: false },
-  cloudy: { label: 'Nhiều mây', sun: 0.55, ambient: 1.08, overcast: 0.55, tint: '#aeb8c2', cloudCount: 44, fogNear: 180, fogFar: 1400, rain: false },
-  rain: { label: 'Mưa', sun: 0.28, ambient: 0.95, overcast: 0.8, tint: '#8793a0', cloudCount: 52, fogNear: 50, fogFar: 650, rain: true },
-  fog: { label: 'Sương mù', sun: 0.55, ambient: 1.05, overcast: 0.7, tint: '#d3dadd', cloudCount: 10, fogNear: 6, fogFar: 150, rain: false },
-}
-
-function mixColor(from: string, to: string, amount: number): THREE.Color {
-  return new THREE.Color(from).lerp(new THREE.Color(to), amount)
-}
-
-/** Sun/moon + ambient light for the current time and weather. Shadows follow the camera target. */
+/** Sun/moon + ambient light for the current look of the sky. Shadows follow the camera target. */
 export function Lighting() {
-  const preset = TIME_PRESETS[useEditorStore((s) => s.timeOfDay)]
-  const weather = WEATHER[useEditorStore((s) => s.weather)]
+  const quality = QUALITY[useEditorStore((s) => s.qualityLevel)]
   const light = useRef<THREE.DirectionalLight>(null)
+  const hemi = useRef<THREE.HemisphereLight>(null)
   const controls = useThree((state) => state.controls) as OrbitControlsImpl | null
   const scene = useThree((state) => state.scene)
-  const direction = useMemo(() => new THREE.Vector3(...sunDirection(preset)), [preset])
+  const gl = useThree((state) => state.gl)
+  const shadow = useRef({ objects: null as unknown, x: NaN, z: NaN, version: -1, lastDraw: 0, hotUntil: 0 })
+  const snapped = useMemo(() => new THREE.Vector3(), [])
 
   useEffect(() => {
-    scene.fog = new THREE.Fog(mixColor(preset.fog, weather.tint, weather.overcast), weather.fogNear, weather.fogFar)
+    scene.fog = new THREE.Fog(atmosphere.fog.getHex(), atmosphere.fogNear, atmosphere.fogFar)
+    // Shadows are drawn on demand: a still scene costs nothing while you spin the camera around it.
+    gl.shadowMap.autoUpdate = false
+    gl.shadowMap.needsUpdate = true
     return () => {
       scene.fog = null
+      gl.shadowMap.autoUpdate = true
     }
-  }, [scene, preset, weather])
+  }, [scene, gl])
 
   useFrame(() => {
     const sun = light.current
     if (!sun) return
-    if (controls) sun.target.position.copy(controls.target)
-    sun.position.copy(sun.target.position).addScaledVector(direction, 220)
+    const now = performance.now()
+    const memory = shadow.current
+    if (controls) {
+      snapped.set(Math.round(controls.target.x / SHADOW_STEP) * SHADOW_STEP, controls.target.y, Math.round(controls.target.z / SHADOW_STEP) * SHADOW_STEP)
+      sun.target.position.copy(snapped)
+    }
+    sun.position.copy(sun.target.position).addScaledVector(atmosphere.sunDirection, 220)
     sun.target.updateMatrixWorld()
+
+    if (scene.fog instanceof THREE.Fog) {
+      scene.fog.color.copy(atmosphere.fog)
+      scene.fog.near = atmosphere.fogNear
+      scene.fog.far = atmosphere.fogFar
+    }
+    sun.color.copy(atmosphere.sunColor)
+    sun.intensity = atmosphere.sunIntensity
+    if (hemi.current) {
+      hemi.current.color.copy(atmosphere.hemiSky)
+      hemi.current.groundColor.copy(atmosphere.hemiGround)
+      hemi.current.intensity = atmosphere.hemiIntensity
+    }
+
+    // Redraw the shadow map when the world, the sun or the shadow window changed, then keep going briefly
+    // so doors that are still swinging are caught.
+    const objects = useWorldStore.getState().objects
+    const changed = objects !== memory.objects || atmosphere.version !== memory.version || snapped.x !== memory.x || snapped.z !== memory.z
+    if (changed) {
+      memory.objects = objects
+      memory.version = atmosphere.version
+      memory.x = snapped.x
+      memory.z = snapped.z
+      memory.hotUntil = now + SHADOW_SETTLE_MS
+    }
+    if (changed || now < memory.hotUntil || now - memory.lastDraw > SHADOW_IDLE_REFRESH_MS) {
+      gl.shadowMap.needsUpdate = true
+      memory.lastDraw = now
+    }
   })
 
   return (
     <>
-      <hemisphereLight args={[preset.hemiSky, preset.hemiGround, preset.hemiIntensity * weather.ambient]} />
+      <hemisphereLight ref={hemi} />
       <directionalLight
+        key={`${quality.shadows}-${quality.shadowSize}`}
         ref={light}
-        color={preset.sunColor}
-        intensity={preset.sunIntensity * weather.sun}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
+        castShadow={quality.shadows}
+        shadow-mapSize={[quality.shadowSize, quality.shadowSize]}
         shadow-bias={-0.0004}
         shadow-normalBias={0.05}
       >
@@ -159,20 +184,18 @@ function createCloudTexture(seed: number): THREE.CanvasTexture {
 
 const MAX_CLOUDS = 56
 
-/** Gradient sky dome plus drifting 2D cloud cards; both follow the camera. */
+/** Gradient sky dome plus drifting 2D cloud cards; both follow the camera and fade smoothly with the weather. */
 export function Sky() {
-  const preset = TIME_PRESETS[useEditorStore((s) => s.timeOfDay)]
-  const weather = WEATHER[useEditorStore((s) => s.weather)]
   const group = useRef<THREE.Group>(null)
   const drift = useRef<THREE.Group>(null)
+  const materials = useRef<(THREE.SpriteMaterial | null)[]>([])
+  const seen = useRef('')
+  const level = useEditorStore((s) => s.qualityLevel)
 
   const uniforms = useMemo(
     () => ({ topColor: { value: new THREE.Color() }, horizonColor: { value: new THREE.Color() } }),
     [],
   )
-  uniforms.topColor.value.copy(mixColor(preset.skyTop, weather.tint, weather.overcast * 0.85))
-  uniforms.horizonColor.value.copy(mixColor(preset.skyHorizon, weather.tint, weather.overcast))
-  const cloudColor = mixColor(preset.cloud, weather.tint, weather.overcast * 0.8).multiplyScalar(1 - weather.overcast * 0.25)
 
   const clouds = useMemo(() => {
     const textures = Array.from({ length: 5 }, (_, i) => createCloudTexture(3 + i * 17))
@@ -194,6 +217,19 @@ export function Sky() {
   useFrame(({ camera }, delta) => {
     group.current?.position.set(camera.position.x, 0, camera.position.z)
     if (drift.current) drift.current.rotation.y += delta * 0.004
+    const stamp = `${atmosphere.version}|${level}`
+    if (seen.current === stamp) return
+    seen.current = stamp
+    const cloudCap = QUALITY[level].clouds
+    uniforms.topColor.value.copy(atmosphere.skyTop)
+    uniforms.horizonColor.value.copy(atmosphere.skyHorizon)
+    materials.current.forEach((material, i) => {
+      if (!material) return
+      material.color.copy(atmosphere.cloud)
+      const opacity = THREE.MathUtils.clamp(Math.min(atmosphere.clouds, cloudCap) - i, 0, 1) * 0.96
+      material.opacity = opacity
+      material.visible = opacity > 0.01
+    })
   })
 
   return (
@@ -210,13 +246,14 @@ export function Sky() {
         />
       </mesh>
       <group ref={drift}>
-        {clouds.slice(0, weather.cloudCount).map((cloud, i) => (
+        {clouds.map((cloud, i) => (
           <sprite key={i} position={cloud.position} scale={cloud.scale} renderOrder={-1}>
-            <spriteMaterial map={cloud.texture} color={cloudColor} transparent opacity={0.96} depthWrite={false} fog={false} />
+            <spriteMaterial ref={(m) => void (materials.current[i] = m)} map={cloud.texture} transparent opacity={0} depthWrite={false} fog={false} />
           </sprite>
         ))}
       </group>
-      {weather.rain && <Rain />}
+      <Rain />
+      <Snow />
     </group>
   )
 }
@@ -244,6 +281,12 @@ function Rain() {
   useEffect(() => () => geometry.dispose(), [geometry])
 
   useFrame(({ camera }, delta) => {
+    const shower = lines.current
+    if (!shower) return
+    const material = shower.material as THREE.LineBasicMaterial
+    material.opacity = atmosphere.rain * 0.45
+    shower.visible = atmosphere.rain > 0.01 && QUALITY[useEditorStore.getState().qualityLevel].particles
+    if (!shower.visible) return
     const attribute = geometry.getAttribute('position') as THREE.BufferAttribute
     const array = attribute.array as Float32Array
     const fall = Math.min(delta, 0.1) * 26
@@ -261,5 +304,56 @@ function Rain() {
     <lineSegments ref={lines} geometry={geometry} frustumCulled={false}>
       <lineBasicMaterial color="#dbe8f5" transparent opacity={0.45} depthWrite={false} />
     </lineSegments>
+  )
+}
+
+const FLAKES = 1600
+const SNOW_AREA = 40
+const SNOW_HEIGHT = 24
+
+/** Slow flakes that sway as they fall, in a box that travels with the camera. */
+function Snow() {
+  const points = useRef<THREE.Points>(null)
+  const sway = useRef(new Float32Array(FLAKES * 2))
+  const geometry = useMemo(() => {
+    const rng = createRng(4242)
+    const positions = new Float32Array(FLAKES * 3)
+    for (let i = 0; i < FLAKES; i++) {
+      positions.set([(rng() - 0.5) * SNOW_AREA, rng() * SNOW_HEIGHT, (rng() - 0.5) * SNOW_AREA], i * 3)
+      sway.current[i * 2] = rng() * Math.PI * 2
+      sway.current[i * 2 + 1] = 0.6 + rng() * 0.9
+    }
+    const buffer = new THREE.BufferGeometry()
+    buffer.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    return buffer
+  }, [])
+  useEffect(() => () => geometry.dispose(), [geometry])
+
+  useFrame(({ camera, clock }, delta) => {
+    const cloud = points.current
+    if (!cloud) return
+    const material = cloud.material as THREE.PointsMaterial
+    material.opacity = atmosphere.snow * 0.9
+    cloud.visible = atmosphere.snow > 0.01 && QUALITY[useEditorStore.getState().qualityLevel].particles
+    if (!cloud.visible) return
+    const attribute = geometry.getAttribute('position') as THREE.BufferAttribute
+    const array = attribute.array as Float32Array
+    const fall = Math.min(delta, 0.1) * 1.7
+    const t = clock.elapsedTime
+    for (let i = 0; i < FLAKES; i++) {
+      let y = array[i * 3 + 1] - fall * sway.current[i * 2 + 1]
+      if (y < 0) y += SNOW_HEIGHT
+      array[i * 3 + 1] = y
+      array[i * 3] += Math.sin(t * 0.7 + sway.current[i * 2]) * 0.004
+      array[i * 3 + 2] += Math.cos(t * 0.5 + sway.current[i * 2]) * 0.004
+    }
+    attribute.needsUpdate = true
+    cloud.position.set(0, camera.position.y - SNOW_HEIGHT / 2, 0)
+  })
+
+  return (
+    <points ref={points} geometry={geometry} frustumCulled={false}>
+      <pointsMaterial color="#ffffff" size={0.13} sizeAttenuation transparent opacity={0} depthWrite={false} fog={false} />
+    </points>
   )
 }

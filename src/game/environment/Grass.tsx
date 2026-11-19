@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
+import { useEditorStore } from '../../stores/editorStore'
+import { QUALITY } from '../core/quality'
 import { createRng } from '../core/random'
 import { biomeAt, flatness, getTerrainHeight, type Biome } from './terrain'
 
@@ -257,9 +259,14 @@ function buildCards(geometry: THREE.BufferGeometry, map: THREE.Texture, cards: C
 
 export function GrassDetail() {
   const meshes = useMemo(() => {
+    const share = QUALITY[useEditorStore.getState().qualityLevel].grass
+    if (share <= 0) return []
     const { tufts, flowers } = scatter()
     const geometry = createCardGeometry()
-    return [buildCards(geometry, createTuftTexture(), tufts), buildCards(geometry, createFlowerTexture(), flowers)]
+    return [
+      buildCards(geometry, createTuftTexture(), tufts.slice(0, Math.floor(tufts.length * share))),
+      buildCards(geometry, createFlowerTexture(), flowers.slice(0, Math.floor(flowers.length * share))),
+    ]
   }, [])
 
   useEffect(
