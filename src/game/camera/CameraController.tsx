@@ -11,6 +11,7 @@ import { getTerrainHeight, WATER_LEVEL } from '../environment/terrain'
 import { getDimensions } from '../geometry/GeometryFactory'
 import { cameraCommands, type ViewPreset } from './cameraCommands'
 import { cameraState, virtualInput } from './cameraState'
+import { loadSpot, SPOT_KEY, type SavedSpot } from './savedSpot'
 import { resolveCameraCollision } from './collision'
 import { EYE_HEIGHT, groundHeightAt, stepVertical } from './walking'
 
@@ -84,6 +85,29 @@ export function CameraController() {
   // Face the starting view before either mode takes over.
   useEffect(() => {
     camera.lookAt(...START_TARGET)
+    // Come back to where the player was standing last time.
+    const spot = loadSpot()
+    if (spot) {
+      camera.position.set(...spot.p)
+      camera.lookAt(...spot.t)
+      controls.current?.target.set(...spot.t)
+      useEditorStore.getState().setCameraMode(spot.mode)
+    }
+    const save = () => {
+      const ctl = controls.current
+      const mode = useEditorStore.getState().cameraMode
+      const ahead = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(8).add(camera.position)
+      const t = mode === 'orbit' && ctl ? ctl.target : ahead
+      try {
+        const data: SavedSpot = { p: [camera.position.x, camera.position.y, camera.position.z], t: [t.x, t.y, t.z], mode }
+        localStorage.setItem(SPOT_KEY, JSON.stringify(data))
+      } catch {
+        /* the spot is simply not remembered */
+      }
+    }
+    const timer = window.setInterval(save, 2000)
+    window.addEventListener('pagehide', save)
+    window.addEventListener('beforeunload', save)
     if (import.meta.env.DEV) {
       const dev = window as unknown as { __woodscapeCamera?: THREE.Camera; __woodscapeLook?: (yaw: number, pitch: number) => void }
       dev.__woodscapeCamera = camera
@@ -92,6 +116,11 @@ export function CameraController() {
         look.current.yaw = shown.current.yaw = yaw
         look.current.pitch = shown.current.pitch = pitch
       }
+    }
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('pagehide', save)
+      window.removeEventListener('beforeunload', save)
     }
   }, [camera])
 

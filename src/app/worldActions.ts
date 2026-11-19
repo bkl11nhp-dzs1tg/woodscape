@@ -1,3 +1,4 @@
+import { forgetSavedSpot } from '../game/camera/savedSpot'
 import { clearHistory } from '../game/core/history'
 import { downloadText, pickTextFile } from '../services/download'
 import { exportWorldJson, fileNameFor, parseWorldJson } from '../services/fileService'
@@ -70,5 +71,6 @@ export async function hydrateFromIndexedDb(): Promise<void> {
 
 /** Starts a fresh world from the home page. The one on screen is kept as a mark first. */
 export function startWorld(kind: 'demo' | 'empty'): void {
+  forgetSavedSpot()
   replace(kind === 'demo' ? createDemoWorld() : createEmptyWorld(), kind === 'demo' ? 'Đã dựng khu phố mẫu' : 'Đất trống, bắt đầu xây thôi')
 }

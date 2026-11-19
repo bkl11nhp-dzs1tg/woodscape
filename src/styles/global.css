@@ -4369,3 +4369,11 @@ body,
   color: #fff;
   text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
 }
+
+/* Text inside a gold button stays dark, whatever bar it sits in */
+.ibtn.primary span,
+.ibtn.active span,
+.confirm-bar .ibtn.primary span,
+.confirm-bar .ibtn.active span {
+  color: #2a2116;
+}
