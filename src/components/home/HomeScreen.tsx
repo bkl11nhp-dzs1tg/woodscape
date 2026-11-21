@@ -7,6 +7,7 @@ import { useWorldStore } from '../../stores/worldStore'
 import { Glyph, type IconName } from '../ui/Icons'
 import { QualityPicker } from '../ui/QualityPicker'
 import { HomeBackdrop } from './HomeBackdrop'
+import { useInstallPrompt } from './useInstallPrompt'
 
 const PLAYER_KEY = 'woodscape.player.v1'
 const DEFAULT_NAME = 'Người chơi'
@@ -27,7 +28,7 @@ function saveName(name: string): void {
   }
 }
 
-type Panel = 'new' | 'marks' | 'graphics' | null
+type Panel = 'new' | 'marks' | 'graphics' | 'install' | null
 
 function Row({ icon, title, badge, onClick, open, disabled }: { icon: IconName; title: string; badge?: string; onClick?: () => void; open?: boolean; disabled?: boolean }) {
   return (
@@ -112,6 +113,7 @@ export function HomeScreen() {
     if (panel === 'marks') setMarks(listSnapshots())
   }, [panel])
 
+  const installer = useInstallPrompt()
   const toggle = (next: Exclude<Panel, null>) => setPanel((current) => (current === next ? null : next))
   const enter = () => setScreen('game')
 
@@ -198,6 +200,20 @@ export function HomeScreen() {
             </div>
           )}
           <Row icon="group" title="Chơi cùng bạn bè" badge="Sắp có" disabled />
+          {installer.canOffer && (
+            <>
+              <Row icon="download" title="Cài về máy" badge={installer.native ? 'Một chạm' : undefined} open={panel === 'install'} onClick={() => (installer.native ? void installer.install() : toggle('install'))} />
+              {panel === 'install' && (
+                <div className="home-sub">
+                  <p>
+                    {installer.ios
+                      ? 'Bấm nút Chia sẻ của Safari, chọn "Thêm vào Màn hình chính". WOODSCAPE sẽ mở toàn màn hình như một app.'
+                      : 'Mở menu ba chấm của trình duyệt (Chrome), chọn "Cài đặt ứng dụng" hoặc "Thêm vào màn hình chính". WOODSCAPE sẽ có biểu tượng riêng và mở toàn màn hình.'}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </nav>
       </section>
     </main>
