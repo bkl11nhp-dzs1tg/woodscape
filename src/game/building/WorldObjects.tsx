@@ -17,6 +17,7 @@ import {
   type WallHoles,
 } from '../geometry/GeometryFactory'
 import { QUALITY } from '../core/quality'
+import { boundsOf, getBrushLayer } from '../materials/brushPaint'
 import { getObjectMaterials } from '../materials/MaterialFactory'
 import { CardPicture } from './CardObject'
 import { FigureModel } from './FigureObject'
@@ -239,9 +240,15 @@ const SolidObject = memo(function SolidObject({ obj, selected, labels, holes }: 
 
   const geometry = holed ?? getGeometry(obj.geometry, alignGrain)
   const material = useMemo(
-    () => getObjectMaterials(obj),
+    () => {
+      const base = getObjectMaterials(obj)
+      if (!obj.brush) return base
+      const layer = getBrushLayer(obj.id, boundsOf(geometry))
+      layer.sync(obj.brush)
+      return layer.materialsFor(base)
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [obj.materialId, obj.faceMaterials, obj.geometry.shape, obj.paint, obj.opacity],
+    [obj.materialId, obj.faceMaterials, obj.geometry.shape, obj.paint, obj.opacity, obj.brush, geometry],
   )
 
   return (
@@ -281,7 +288,7 @@ function partitionObjects(order: string[], objects: Record<string, WorldObject>,
   const runs = new Map<string, WorldObject[]>()
   for (const id of order) {
     const obj = objects[id]
-    if (!obj || selected.has(id) || growth.has(id) || holes[id] || obj.opacity !== undefined || !INSTANCEABLE.has(obj.geometry.shape)) continue
+    if (!obj || selected.has(id) || growth.has(id) || holes[id] || obj.opacity !== undefined || obj.brush || !INSTANCEABLE.has(obj.geometry.shape)) continue
     const key = instanceKey(obj)
     const run = runs.get(key)
     if (run) run.push(obj)

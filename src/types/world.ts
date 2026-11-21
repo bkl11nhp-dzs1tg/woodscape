@@ -43,6 +43,19 @@ export interface Paint {
   strength: number
 }
 
+/**
+ * One stroke of the paint brush on an object. `dabs` is a flat list of [face, u, v] triples: the face
+ * (0 +X, 1 -X, 2 +Y, 3 -Y, 4 +Z, 5 -Z) and where on it, as 0..1 of the object's own extent, so the
+ * paint stays put when the object is resized. `radius` is in meters; `alpha` is how dense the stroke is.
+ */
+export interface BrushStroke {
+  color: string
+  alpha: number
+  radius: number
+  erase?: boolean
+  dabs: number[]
+}
+
 export interface WorldObject {
   id: string
   /** Asset/preset type, e.g. `wood_beam`, `brick_block`, `primitive_sphere`. */
@@ -59,6 +72,8 @@ export interface WorldObject {
   /** Display name of the group; stored on every member so it survives ungrouping one piece. */
   groupName?: string
   paint?: Paint
+  /** Strokes painted with the brush, drawn over the material and the coat. */
+  brush?: BrushStroke[]
   /** Overrides the material's opacity (0.1..1). On windows it applies to the glass. */
   opacity?: number
   /** Doors and windows only: whether the leaf / sashes are swung open. */

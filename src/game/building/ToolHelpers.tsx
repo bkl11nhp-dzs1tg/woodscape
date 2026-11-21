@@ -4,8 +4,10 @@ import * as THREE from 'three'
 import { useEditorStore } from '../../stores/editorStore'
 import { useWorldStore } from '../../stores/worldStore'
 import { getTerrainHeight } from '../environment/terrain'
-import { paintObjects } from './commands'
-import { objectIdFromHit, setGizmoDragging } from './interaction'
+import type { BrushStroke } from '../../types/world'
+import { boundsOf, FACE_AXES, faceCoords, faceOfNormal, getBrushLayer, MAX_DABS_PER_OBJECT, type BrushLayer } from '../materials/brushPaint'
+import { brushObjects, paintObjects } from './commands'
+import { hitMatrix, objectIdFromHit, setGizmoDragging } from './interaction'
 import { connectedRegion } from './selection'
 
 /** Mouse pointer for the paint tool: a round brush filled with the current color. */
@@ -39,6 +41,10 @@ export function PaintBrush() {
     const raycaster = new THREE.Raycaster()
     const pointer = new THREE.Vector2()
     let stroke: Set<string> | null = null
+    // Brush mode: the stroke being painted on each object, kept (one undo step) when the pointer lifts.
+    const BRUSHABLE = new Set(['box', 'panel', 'prism', 'extrude'])
+    let brush: Map<string, { layer: BrushLayer; stroke: BrushStroke; last: [number, number, number] | null }> | null = null
+    let lastPointer: { x: number; y: number } | null = null
 
     const objectAt = (e: PointerEvent): string | null => {
       const rect = element.getBoundingClientRect()
@@ -49,7 +55,76 @@ export function PaintBrush() {
       const objects = useWorldStore.getState().objects
       return objectIdFromHit(hit, objects)
     }
+    const dab = (x: number, y: number) => {
+      if (!brush) return
+      const rect = element.getBoundingClientRect()
+      pointer.set(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1)
+      raycaster.setFromCamera(pointer, camera)
+      const group = scene.getObjectByName('world-objects')
+      const hit = group ? raycaster.intersectObjects(group.children, true)[0] : undefined
+      if (!hit || !hit.face) return
+      const objects = useWorldStore.getState().objects
+      const id = objectIdFromHit(hit, objects)
+      const obj = id ? objects[id] : undefined
+      const geometry = (hit.object as THREE.Mesh).geometry
+      if (!id || !obj || obj.locked || !BRUSHABLE.has(obj.geometry.shape) || !geometry) return
+      const editor = useEditorStore.getState()
+      const bounds = boundsOf(geometry)
+      let entry = brush.get(id)
+      if (!entry) {
+        if (editor.paintErase && !obj.brush) return
+        const layer = getBrushLayer(id, bounds)
+        layer.sync(obj.brush)
+        const meta = { color: editor.paintColor, alpha: editor.paintStrength, radius: editor.paintSize, erase: editor.paintErase || undefined }
+        layer.beginStroke(meta)
+        entry = { layer, stroke: { ...meta, dabs: [] }, last: null }
+        brush.set(id, entry)
+        // First time on this object: show the brush layer at once instead of waiting for the stroke to end.
+        const mesh = hit.object as THREE.Mesh
+        if (!obj.brush && !(mesh as THREE.InstancedMesh).isInstancedMesh && mesh.name === id) mesh.material = layer.materialsFor(mesh.material)
+      }
+      const already = obj.brush?.reduce((n, s) => n + s.dabs.length / 3, 0) ?? 0
+      if (already + entry.stroke.dabs.length / 3 >= MAX_DABS_PER_OBJECT) return
+      const local = hit.point.clone().applyMatrix4(hitMatrix(hit).invert())
+      const face = faceOfNormal(hit.face.normal)
+      const [u, v] = faceCoords(face, local, bounds)
+      const last = entry.last
+      if (last && last[0] === face) {
+        const [ai, bi] = FACE_AXES[face]
+        if (Math.hypot((u - last[1]) * bounds.size.getComponent(ai), (v - last[2]) * bounds.size.getComponent(bi)) < entry.stroke.radius * 0.3) return
+      }
+      entry.last = [face, u, v]
+      entry.stroke.dabs.push(face, Math.round(u * 1000) / 1000, Math.round(v * 1000) / 1000)
+      entry.layer.addDab(entry.stroke, face, u, v)
+    }
+    const sweep = (e: PointerEvent) => {
+      // Fill the gaps when the pointer jumps: a dab roughly every 6 pixels along the way.
+      const from = lastPointer ?? { x: e.clientX, y: e.clientY }
+      const steps = Math.min(40, Math.max(1, Math.ceil(Math.hypot(e.clientX - from.x, e.clientY - from.y) / 6)))
+      for (let i = 1; i <= steps; i++) dab(from.x + ((e.clientX - from.x) * i) / steps, from.y + ((e.clientY - from.y) * i) / steps)
+      lastPointer = { x: e.clientX, y: e.clientY }
+    }
+    const finishBrush = () => {
+      if (!brush) return
+      const entries = brush
+      brush = null
+      lastPointer = null
+      const done: Record<string, BrushStroke> = {}
+      for (const [id, entry] of entries) {
+        entry.layer.endStroke()
+        if (entry.stroke.dabs.length > 0) done[id] = entry.stroke
+      }
+      if (Object.keys(done).length === 0) return
+      brushObjects(done)
+      // The picture already shows these strokes; tell it so it does not redraw them.
+      const objects = useWorldStore.getState().objects
+      for (const id of Object.keys(done)) entries.get(id)!.layer.synced = objects[id]?.brush
+    }
     const apply = (e: PointerEvent) => {
+      if (useEditorStore.getState().paintMode === 'brush') {
+        sweep(e)
+        return
+      }
       const id = objectAt(e)
       if (!stroke || !id || stroke.has(id)) return
       const editor = useEditorStore.getState()
@@ -60,6 +135,10 @@ export function PaintBrush() {
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return
       stroke = new Set()
+      if (useEditorStore.getState().paintMode === 'brush') {
+        brush = new Map()
+        lastPointer = null
+      }
       // Holds the camera still while the brush is down.
       setGizmoDragging(true)
       apply(e)
@@ -67,6 +146,7 @@ export function PaintBrush() {
     const onMove = (e: PointerEvent) => apply(e)
     const onUp = () => {
       if (!stroke) return
+      finishBrush()
       stroke = null
       setGizmoDragging(false)
     }

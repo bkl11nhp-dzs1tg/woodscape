@@ -2,7 +2,7 @@ import { Euler, Quaternion, Vector3 } from 'three'
 import { useEditorStore } from '../../stores/editorStore'
 import { showToast } from '../../stores/toastStore'
 import { useWorldStore, type ObjectPatch } from '../../stores/worldStore'
-import type { BoxFace, GeometryParams, Paint, Vec3, WorldObject } from '../../types/world'
+import type { BoxFace, BrushStroke, GeometryParams, Paint, Vec3, WorldObject } from '../../types/world'
 import { executeCommand, type Command } from '../core/history'
 import { getDimensions } from '../geometry/GeometryFactory'
 
@@ -217,6 +217,11 @@ function updateMany(ids: string[], label: string, change: (obj: WorldObject) => 
 /** Coats (or strips) several objects in one undoable step. */
 export function paintObjects(ids: string[], paint: Paint | undefined): void {
   updateMany(ids, 'PaintObject', (obj) => ({ ...obj, paint }))
+}
+
+/** Adds one finished brush stroke to each object it touched; one undo step for the whole sweep. */
+export function brushObjects(strokes: Record<string, BrushStroke>): void {
+  updateMany(Object.keys(strokes), 'BrushPaint', (obj) => ({ ...obj, brush: [...(obj.brush ?? []), strokes[obj.id]] }))
 }
 
 /** Binds objects into one group that is selected and moved together. Returns the group ID. */

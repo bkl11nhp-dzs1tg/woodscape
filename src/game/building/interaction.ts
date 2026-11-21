@@ -89,3 +89,5 @@ if (typeof window !== 'undefined') {
 export function straightWanted(): boolean {
   return shiftHeld || useEditorStore.getState().straightLock
 }
+
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __objectMeshes: typeof objectMeshes }).__objectMeshes = objectMeshes

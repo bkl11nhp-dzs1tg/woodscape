@@ -93,6 +93,10 @@ interface EditorState {
   paintColor: string
   paintStrength: number
   paintErase: boolean
+  /** `brush` paints only where you stroke; `coat` coats the whole object touched. */
+  paintMode: 'brush' | 'coat'
+  /** Brush radius, meters. */
+  paintSize: number
   /** Paint every connected part of the same kind, not just the one touched. */
   paintRegion: boolean
   /** Marker placed on the map. */
@@ -142,7 +146,7 @@ interface EditorState {
   setSnapEnabled: (enabled: boolean) => void
   setGridStep: (step: number) => void
   setCut: (cut: { axis?: Axis; ratio?: number }) => void
-  setPaint: (paint: { color?: string; strength?: number; erase?: boolean; region?: boolean }) => void
+  setPaint: (paint: { color?: string; strength?: number; erase?: boolean; region?: boolean; mode?: 'brush' | 'coat'; size?: number }) => void
   setWaypoint: (waypoint: { x: number; z: number } | null) => void
   rotatePlacement: (delta: number) => void
   setMultiSelect: (on: boolean) => void
@@ -215,6 +219,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   paintColor: '#f3dfa6',
   paintStrength: 0.8,
   paintErase: false,
+  paintMode: 'brush',
+  paintSize: 0.25,
   paintRegion: false,
   waypoint: null,
   placeYaw: 0,
@@ -284,6 +290,8 @@ export const useEditorStore = create<EditorState>((set) => ({
       paintStrength: paint.strength ?? s.paintStrength,
       paintErase: paint.erase ?? (paint.color ? false : s.paintErase),
       paintRegion: paint.region ?? s.paintRegion,
+      paintMode: paint.mode ?? s.paintMode,
+      paintSize: paint.size ?? s.paintSize,
     })),
   setWaypoint: (waypoint) => set({ waypoint }),
   rotatePlacement: (delta) => set((s) => ({ placeYaw: s.placeYaw + delta })),

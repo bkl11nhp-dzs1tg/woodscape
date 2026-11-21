@@ -30,6 +30,8 @@ export function PaintBar() {
   const strength = useEditorStore((s) => s.paintStrength)
   const erase = useEditorStore((s) => s.paintErase)
   const region = useEditorStore((s) => s.paintRegion)
+  const mode = useEditorStore((s) => s.paintMode)
+  const size = useEditorStore((s) => s.paintSize)
   const setPaint = useEditorStore((s) => s.setPaint)
   if (!active) return null
 
@@ -49,7 +51,9 @@ export function PaintBar() {
         <input type="color" aria-label="Màu tuỳ chọn" value={color} onChange={(e) => setPaint({ color: e.target.value })} />
       </div>
       <label>
-        <span>Độ phủ {Math.round(strength * 100)}%</span>
+        <span>
+          {mode === 'brush' ? 'Độ đậm' : 'Độ phủ'} {Math.round(strength * 100)}%
+        </span>
         <input
           type="range"
           min={10}
@@ -59,8 +63,18 @@ export function PaintBar() {
           onChange={(e) => setPaint({ strength: Number(e.target.value) / 100 })}
         />
       </label>
+      {mode === 'brush' && (
+        <label>
+          <span>Cỡ cọ {Math.round(size * 100)} cm</span>
+          <input type="range" min={5} max={100} step={5} value={Math.round(size * 100)} onChange={(e) => setPaint({ size: Number(e.target.value) / 100 })} />
+        </label>
+      )}
       <div className="bar-actions">
-        <IconButton icon="fill" text="Cả vùng" label="Sơn cả vùng: một lần chạm phủ mọi phần cùng loại dính liền (cả dãy tường, cả mái)" pressed={region} onClick={() => setPaint({ region: !region })} />
+        <IconButton icon="pen" text="Cọ" label="Cọ: bôi tới đâu sơn tới đó, theo độ đậm và cỡ cọ" pressed={mode === 'brush'} onClick={() => setPaint({ mode: 'brush' })} />
+        <IconButton icon="fill" text="Cả vật" label="Phủ cả vật: một lần chạm sơn cả vật được chạm" pressed={mode === 'coat'} onClick={() => setPaint({ mode: 'coat' })} />
+        {mode === 'coat' && (
+          <IconButton icon="fill" text="Cả vùng" label="Sơn cả vùng: một lần chạm phủ mọi phần cùng loại dính liền (cả dãy tường, cả mái)" pressed={region} onClick={() => setPaint({ region: !region })} />
+        )}
         <IconButton icon="eraser" text="Gỡ sơn" label="Gỡ sơn" pressed={erase} onClick={() => setPaint({ erase: !erase })} />
       </div>
     </section>
