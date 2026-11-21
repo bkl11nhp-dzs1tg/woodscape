@@ -57,7 +57,7 @@ export function stepVertical(y: number, vy: number, floorEye: number, dt: number
   if (next < floorEye) {
     // Up onto a step: glide up rather than snapping, which would jerk on every tread.
     if (floorEye - y > 0.004 && velocity <= 0) {
-      next = y + (floorEye - y) * Math.min(1, dt * 18)
+      next = y + (floorEye - y) * Math.min(1, dt * 30)
       if (floorEye - next < 0.004) next = floorEye
       velocity = 0
     } else {

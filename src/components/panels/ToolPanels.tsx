@@ -273,6 +273,7 @@ export function TouchControls() {
     if (knob.current) knob.current.style.transform = `translate(${dx}px, ${dy}px)`
   }
   const releaseStick = () => {
+    virtualInput.stickDown = false
     virtualInput.moveX = 0
     virtualInput.moveForward = 0
     if (knob.current) knob.current.style.transform = ''
@@ -308,11 +309,12 @@ export function TouchControls() {
   }
 
   return (
-    <div className="touch-controls">
+    <div className="touch-controls" onContextMenu={(e) => e.preventDefault()}>
       <div
         className="stick"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId)
+          virtualInput.stickDown = true
           moveStick(e)
         }}
         onPointerMove={moveStick}

@@ -19,6 +19,8 @@ export function resolveCameraCollision(
   radius: number,
   objects: readonly WorldObject[],
   holes: Record<string, WallHoles>,
+  /** Legs only: pieces whose top is at or below this height are stepped onto, so they never push back. */
+  stepUnder = -Infinity,
 ): void {
   // Two passes so that being pushed out of one object into another settles.
   for (let pass = 0; pass < 2; pass++) {
@@ -38,6 +40,7 @@ export function resolveCameraCollision(
       const hy = size.height / 2
       const hz = size.depth / 2
       const [px, py, pz] = obj.transform.position
+      if (stepUnder > -Infinity && Math.abs(obj.transform.rotation[0]) < 0.05 && Math.abs(obj.transform.rotation[2]) < 0.05 && py + hy <= stepUnder) continue
       // Cheap reject before the rotation math.
       const reach = Math.hypot(hx, hy, hz) + radius
       if (Math.abs(position.x - px) > reach || Math.abs(position.y - py) > reach || Math.abs(position.z - pz) > reach) continue

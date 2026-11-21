@@ -16,4 +16,6 @@ export const virtualInput = {
   vertical: 0,
   /** Run: the on-screen run button is held. */
   fast: false,
+  /** A finger is on the stick (even if it is still centred). */
+  stickDown: false,
 }

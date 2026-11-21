@@ -4377,3 +4377,44 @@ body,
 .confirm-bar .ibtn.active span {
   color: #2a2116;
 }
+
+/* Buttons and the picture are never "text": tapping them many times must not highlight words */
+.app,
+.app button,
+.viewport,
+.touch-controls {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea,
+select,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Lighter on-screen buttons: the picture shows through */
+@media (pointer: coarse) {
+  .stick,
+  .vbtn {
+    opacity: 0.55;
+  }
+
+  .stick:active,
+  .vbtn:active {
+    opacity: 0.95;
+  }
+
+  .vbtn,
+  .vbtn:hover {
+    background: rgba(32, 28, 46, 0.08);
+  }
+
+  .vbtn:active {
+    background: rgba(240, 207, 140, 0.16);
+  }
+}

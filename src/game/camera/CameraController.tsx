@@ -7,13 +7,13 @@ import { useEditorStore } from '../../stores/editorStore'
 import { useWorldStore } from '../../stores/worldStore'
 import { isGizmoDragging } from '../building/interaction'
 import { getWallHoles } from '../building/openings'
-import { getTerrainHeight, WATER_LEVEL } from '../environment/terrain'
+import { getTerrainHeight, TERRAIN_SIZE, WATER_LEVEL } from '../environment/terrain'
 import { getDimensions } from '../geometry/GeometryFactory'
 import { cameraCommands, type ViewPreset } from './cameraCommands'
 import { cameraState, virtualInput } from './cameraState'
 import { loadSpot, SPOT_KEY, type SavedSpot } from './savedSpot'
 import { resolveCameraCollision } from './collision'
-import { EYE_HEIGHT, groundHeightAt, stepVertical } from './walking'
+import { EYE_HEIGHT, groundHeightAt, MAX_STEP, stepVertical } from './walking'
 
 /**
  * Camera with two modes (toggle with C):
@@ -42,6 +42,10 @@ const LOOK_SPEED = 0.0035
 const MAX_PITCH = 1.5
 const EYE_RADIUS = 0.3
 const GROUND_CLEARANCE = 0.35
+/** How high above the ground and how far from the middle of the map the camera may go. */
+const MAX_HEIGHT_ABOVE_GROUND = 80
+const MAX_ALTITUDE = 120
+const MAX_RANGE = TERRAIN_SIZE / 2 - 12
 /** In walk mode the orbit point (used for shadows and the grid) stays this far ahead. */
 const LOOK_AHEAD = 6
 
@@ -168,12 +172,16 @@ export function CameraController() {
       glideTo(ctl.target.clone().addScaledVector(VIEW_DIRECTIONS[preset], distance), ctl.target.clone())
     }
 
-    const goTo = (x: number, z: number) => {
+    const goTo = (wantedX: number, wantedZ: number) => {
+      let x = wantedX
+      let z = wantedZ
       const ctl = controls.current
       const height = camera.position.y - getTerrainHeight(camera.position.x, camera.position.z)
       const dx = x - camera.position.x
       const dz = z - camera.position.z
-      const y = Math.max(getTerrainHeight(x, z), WATER_LEVEL) + Math.max(height, 1.7)
+      x = THREE.MathUtils.clamp(x, -MAX_RANGE, MAX_RANGE)
+      z = THREE.MathUtils.clamp(z, -MAX_RANGE, MAX_RANGE)
+      const y = Math.min(MAX_ALTITUDE, Math.max(getTerrainHeight(x, z), WATER_LEVEL) + Math.min(Math.max(height, 1.7), MAX_HEIGHT_ABOVE_GROUND))
       // A trip across the map takes longer and rises over the land on the way, like a drone shot.
       const distance = Math.hypot(dx, dz)
       const seconds = THREE.MathUtils.clamp(0.9 + distance / 120, 0.9, 3)
@@ -215,6 +223,49 @@ export function CameraController() {
       window.removeEventListener('blur', clear)
     }
   }, [camera])
+
+  // Fly mode on a touch screen: while a finger drives the stick or the up/down buttons, dragging the
+  // picture turns the head where you are (orbiting a point ahead would swing the camera round in circles).
+  useEffect(() => {
+    if (mode !== 'orbit') return
+    const element = gl.domElement
+    let drag: { id: number; x: number; y: number } | null = null
+    const steering = () => virtualInput.stickDown || virtualInput.vertical !== 0
+    const onDown = (e: PointerEvent) => {
+      if (drag === null) drag = { id: e.pointerId, x: e.clientX, y: e.clientY }
+    }
+    const onMove = (e: PointerEvent) => {
+      const ctl = controls.current
+      if (!drag || e.pointerId !== drag.id || !ctl) return
+      const dx = e.clientX - drag.x
+      const dy = e.clientY - drag.y
+      drag.x = e.clientX
+      drag.y = e.clientY
+      if (!steering() || isGizmoDragging()) return
+      const speed = LOOK_SPEED * useEditorStore.getState().lookSpeed
+      const offset = ctl.target.clone().sub(camera.position)
+      const distance = offset.length()
+      if (distance < 1e-3) return
+      const yaw = Math.atan2(-offset.x, -offset.z) - dx * speed
+      const pitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(offset.y / distance, -1, 1)) - dy * speed, -MAX_PITCH, MAX_PITCH)
+      offset.set(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(distance)
+      ctl.target.copy(camera.position).add(offset)
+      ctl.update()
+    }
+    const onUp = (e: PointerEvent) => {
+      if (drag && e.pointerId === drag.id) drag = null
+    }
+    element.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      element.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [mode, camera, gl])
 
   // Walk mode: keep the current view direction, then turn the head by dragging (mouse or finger).
   useEffect(() => {
@@ -286,7 +337,7 @@ export function CameraController() {
     const editor = useEditorStore.getState()
     const walking = editor.cameraMode === 'walk'
     // TransformControls re-enables the default controls after a drag, so this is set every frame.
-    ctl.enabled = !walking && !isGizmoDragging()
+    ctl.enabled = !walking && !isGizmoDragging() && !virtualInput.stickDown && virtualInput.vertical === 0
 
     // Comfort: field of view, and the head turns with a little ease instead of snapping to the finger.
     if (Math.abs((camera as THREE.PerspectiveCamera).fov - editor.fov) > 0.01) {
@@ -345,7 +396,9 @@ export function CameraController() {
     if (amount > 1e-3) wanted.normalize().multiplyScalar(amount * speed)
     else wanted.set(0, 0, 0)
     if (wanted.lengthSq() > 0) glide.current = null
-    if (editor.smoothMotion) velocity.current.lerp(wanted, 1 - Math.exp(-dt * 9))
+    // Running picks up speed quickly, and stopping is short so nothing slides on after you let go.
+    const rate = wanted.lengthSq() === 0 ? 16 : fast > 1 ? 16 : 9
+    if (editor.smoothMotion) velocity.current.lerp(wanted, 1 - Math.exp(-dt * rate))
     else velocity.current.copy(wanted)
     if (velocity.current.lengthSq() < 1e-4 && wanted.lengthSq() === 0) velocity.current.set(0, 0, 0)
     step.current.copy(velocity.current).multiplyScalar(dt)
@@ -368,7 +421,7 @@ export function CameraController() {
       const waist = camera.position.clone()
       waist.y -= 0.85
       const before = waist.clone()
-      resolveCameraCollision(waist, EYE_RADIUS, list, holes)
+      resolveCameraCollision(waist, EYE_RADIUS, list, holes, camera.position.y - EYE_HEIGHT + MAX_STEP)
       camera.position.x += waist.x - before.x
       camera.position.z += waist.z - before.z
       // Stand on whatever is underfoot: ground, floor, a stair tread.
@@ -380,11 +433,21 @@ export function CameraController() {
       fall.current = result.vy
     } else {
       fall.current = 0
+      // Flying: solid things still stop you (up or down), but nothing pulls you to the ground.
+      if (!walking && editor.collisionEnabled && moving) {
+        const objects = useWorldStore.getState().objects
+        resolveCameraCollision(camera.position, EYE_RADIUS, Object.values(objects), getWallHoles(objects))
+      }
     }
 
     // Never sink into the ground or the water.
     const floor = Math.max(getTerrainHeight(camera.position.x, camera.position.z), WATER_LEVEL) + GROUND_CLEARANCE
     if (camera.position.y < floor) camera.position.y = floor
+    // And never off to infinity: a ceiling and the edge of the map.
+    const ceiling = Math.min(MAX_ALTITUDE, getTerrainHeight(camera.position.x, camera.position.z) + MAX_HEIGHT_ABOVE_GROUND)
+    if (camera.position.y > ceiling) camera.position.y = ceiling
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -MAX_RANGE, MAX_RANGE)
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -MAX_RANGE, MAX_RANGE)
 
     if (walking) {
       // Keep the orbit point ahead of the eye: shadows and the build grid follow it.
@@ -411,7 +474,7 @@ export function CameraController() {
       rotateSpeed={lookSpeed}
       target={START_TARGET}
       minDistance={0.5}
-      maxDistance={450}
+      maxDistance={160}
       maxPolarAngle={Math.PI * 0.97}
     />
   )
